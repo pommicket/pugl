@@ -39,6 +39,7 @@ void main() {
 	gl.linkProgram(program);
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 		show_error('Error linking shader program:\n' + gl.getProgramInfoLog(program));
+		return;
 	}
 	
 	vertex_buffer = gl.createBuffer();
@@ -92,6 +93,6 @@ function compile_shader(name, type, source) {
 }
 
 function show_error(error) {
-	// TODO: display error in browser
-	console.log(error);
+	document.getElementById('error-message').innerText = error;
+	document.getElementById('error-dialog').showModal();
 }
