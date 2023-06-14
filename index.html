@@ -26,10 +26,19 @@
 		border: 2px solid red;
 		background-color: black;
 	}
-	#error-dialog button {
+	dialog button {
+		font-family: monospace;
+	}
+	button {
 		border: 2px solid white;
 		background-color: black;
 		color: white;
+	}
+	button:hover {
+		background-color: #fff3;
+	}
+	button:active {
+		background-color: #fff6;
 	}
 	button:focus {
 		outline: 2px solid #0a0;
@@ -49,9 +58,6 @@
 
 <dialog id="error-dialog">
   <pre id="error-message" class="error"></pre>
-  <form method="dialog">
-    <button>OK</button>
-  </form>
 </dialog>
 
 </body>
