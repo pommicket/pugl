@@ -10,6 +10,7 @@ let canvas;
 let framebuffer;
 let framebuffer_color_texture;
 let sampler_texture;
+let current_time;
 let vertices_main = [];
 
 let width = 1920, height = 1920;
@@ -24,6 +25,10 @@ function handle_key_press(e) {
 	}
 }
 
+function lerp(a, b, x) {
+	return a + (b - a) * x;
+}
+
 function vertices_push_quad(vertices, v0, v1, v2, v3) {
 	vertices.push(v0);
 	vertices.push(v1);
@@ -35,7 +40,8 @@ function vertices_push_quad(vertices, v0, v1, v2, v3) {
 
 const VERTEX_POS = 0;
 const VERTEX_UV = 8;
-const VERTEX_SIZE = 16;
+const VERTEX_COLOR = 16;
+const VERTEX_SIZE = 32;
 
 function vertices_to_uint8_array(vertices) {
 	let array = new Uint8Array(vertices.length * VERTEX_SIZE);
@@ -45,6 +51,8 @@ function vertices_to_uint8_array(vertices) {
 			VERTEX_SIZE * i + VERTEX_POS);
 		array.set(new Uint8Array((new Float32Array(vertex.uv)).buffer),
 			VERTEX_SIZE * i + VERTEX_UV);
+		array.set(new Uint8Array((new Float32Array(vertex.color)).buffer),
+			VERTEX_SIZE * i + VERTEX_COLOR);
 	}
 	return array;
 }
@@ -62,9 +70,12 @@ function startup() {
 	program_main = compile_program('main', `
 attribute vec2 v_pos;
 attribute vec2 v_uv;
+attribute vec4 v_color;
 varying vec2 uv;
+varying vec4 color;
 void main() {
 	uv = v_uv;
+	color = v_color;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `, `
@@ -73,12 +84,11 @@ precision highp float;
 #endif
 
 uniform sampler2D u_texture;
-uniform vec4 u_color;
-uniform float u_color_mix;
+varying vec4 color;
 varying vec2 uv;
 
 void main() {
-	gl_FragColor = mix(texture2D(u_texture, uv), u_color, u_color_mix);
+	gl_FragColor = mix(texture2D(u_texture, uv), vec4(color.xyz, 1.0), color.w);
 }
 `);
 	if (program_main === null) {
@@ -114,30 +124,38 @@ void main() {
 	]), gl.STATIC_DRAW);
 	
 	vertex_buffer_main = gl.createBuffer();
-	/*
+	
 	for (let y = 0; y < 3; ++y) {
 		for (let x = 0; x < 3; ++x) {
-			let k = 1.0 / 3.0;
-			let x0 = x * 2.0 / 3.0 - 2.0 / 3.0;
-			let y0 = y * 2.0 / 3.0 - 2.0 / 3.0;
+			if (x == 1 && y == 1) continue;
+			let k = 2.0 / 3.0;
+			let x0 = x * 2.0 / 3.0 - 1.0;
+			let y0 = y * 2.0 / 3.0 - 1.0;
 			let x1 = x0 + k;
 			let y1 = y0 + k;
+			let color = [1.0, 0.5, 1.0, 0.1];
 			vertices_push_quad(vertices_main,
-				{pos: [x0, y0], uv: [0.0, 0.0]},
-				{pos: [x1, y0], uv: [1.0, 0.0]},
-				{pos: [x1, y1], uv: [1.0, 1.0]},
-				{pos: [x0, y1], uv: [0.0, 1.0]},
+				{pos: [x0, y0], uv: [0.0, 0.0], color: color},
+				{pos: [x1, y0], uv: [1.0, 0.0], color: color},
+				{pos: [x1, y1], uv: [1.0, 1.0], color: color},
+				{pos: [x0, y1], uv: [0.0, 1.0], color: color},
 			);
 			
 		}
-	}*/
-	vertices_main = [
-		{pos: [-1, -1], uv: [0.0, 0.0]},
-		{pos: [1, -1], uv: [1.0, 0.0]},
-		{pos: [1, 1], uv: [1.0, 1.0]},
-	]
+	}
+	{
+		let k = 0.5 / 3.0;
+		let color = [0.5, 0.5, 1.0, 1.0];
+		vertices_push_quad(vertices_main,
+			{pos: [-k, -k], uv: [0.0, 0.0], color: color},
+			{pos: [k,  -k], uv: [1.0, 0.0], color: color},
+			{pos: [k,   k], uv: [1.0, 1.0], color: color},
+			{pos: [-k,  k], uv: [0.0, 1.0], color: color},
+		);
+	}
 	
 	let vertex_data = vertices_to_uint8_array(vertices_main);
+	console.log(new Float32Array(vertex_data.buffer));
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	gl.bufferData(gl.ARRAY_BUFFER, vertex_data, gl.DYNAMIC_DRAW);
 	
@@ -150,7 +168,7 @@ void main() {
 }
 
 function frame(time) {
-	time *= 1e-3;
+	current_time = time * 1e-3;
 	
 	let canvas_width = canvas.offsetWidth;
 	let canvas_height = canvas.offsetHeight;
@@ -158,7 +176,6 @@ function frame(time) {
 	canvas.height = canvas_height;
 	
 	let step = true;
-	
 	if (step) {
 		perform_step();
 	}
@@ -180,6 +197,7 @@ function frame(time) {
 	}
 	
 	gl.useProgram(program_post);
+	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_rect);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.uniform1i(gl.getUniformLocation(program_post, 'u_texture'), 0);
@@ -210,18 +228,19 @@ function perform_step() {
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.uniform4fv(gl.getUniformLocation(program_main, 'u_color'), [1.0, 1.0, 1.0, 1.0]);
-	gl.uniform1f(gl.getUniformLocation(program_main, 'u_color_mix'), 1.0);
 	gl.uniform1i(gl.getUniformLocation(program_main, 'u_sampler_texture'), 0);
 	
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	let v_pos = gl.getAttribLocation(program_main, 'v_pos');
 	let v_uv = gl.getAttribLocation(program_main, 'v_uv');
+	let v_color = gl.getAttribLocation(program_main, 'v_color');
 	gl.enableVertexAttribArray(v_pos);
 	gl.enableVertexAttribArray(v_uv);
-	gl.vertexAttribPointer(v_pos, 2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_POS);
-	gl.vertexAttribPointer(v_uv,  2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_UV);
-	
-	gl.drawArrays(gl.TRIANGLES, 0, 3);
+	gl.enableVertexAttribArray(v_color);
+	gl.vertexAttribPointer(v_pos,    2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_POS);
+	gl.vertexAttribPointer(v_uv,     2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_UV);
+	gl.vertexAttribPointer(v_color,  4, gl.FLOAT, false, VERTEX_SIZE, VERTEX_COLOR);
+	gl.drawArrays(gl.TRIANGLES, 0, vertices_main.length);
 	
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, width, height, 0);
