@@ -2,7 +2,7 @@
 
 /*
 TODO:
-- custom triangles and parallelograms
+- skip UV specification if opacity === 1
 - synthlike interface? (change name to fraxynth?)
 - grid
 */
@@ -25,11 +25,13 @@ let vertices_main = [];
 let vertices_changed = false;
 let ui_shown = true;
 let mouse_x, mouse_y;
-let canvas_x, canvas_y;
 let viewport_width, viewport_height, viewport_scale;
 let ui_shape = [];
 let ui_make_parallelogram = false;
 let ui_vertex_positions = [];
+let ui_color_input;
+let ui_color_mix_input;
+let ui_div;
 
 const TOOL_VERTEX = 1;
 const TOOL_UV = 2;
@@ -42,6 +44,29 @@ let width = 1920, height = 1920;
 
 window.addEventListener('load', startup);
 
+function set_ui_shown(to) {
+	ui_shown = to;
+	ui_div.style.visibility = to ? 'visible' : 'collapse';
+	page.dataset.uiShown = to ? '1' : '0';
+}
+
+function ui_get_color() {
+	return ui_color_input.value;
+}
+
+function ui_get_color_mix() {
+	return ui_color_mix_input.value;
+}
+
+function hex_to_rgba(hex) {
+	return {
+		r: parseInt(hex.substr(1, 2), 16) / 255,
+		g: parseInt(hex.substr(3, 2), 16) / 255,
+		b: parseInt(hex.substr(5, 2), 16) / 255,
+		a: hex.length <= 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255,
+	};
+}
+
 function on_key_press(e) {
 	let code = e.keyCode;
 	console.log('key press:', code);
@@ -50,15 +75,28 @@ function on_key_press(e) {
 		perform_step();
 		break;
 	case 9: // tab
-		ui_shown = !ui_shown;
+		set_ui_shown(!ui_shown);
 		e.preventDefault();
 		break;
 	}
 }
 
+function get_mouse_pos_from_event(e) {
+	if (e.target !== canvas && e.target !== ui_canvas) {
+		mouse_x = -1e10;
+		mouse_y = -1e10;
+	} else {
+		mouse_x = e.offsetX / viewport_scale;
+		mouse_y = e.offsetY / viewport_scale;
+	}
+}
+
 function on_mouse_move(e) {
-	mouse_x = (e.clientX - canvas_x) / viewport_scale;
-	mouse_y = (e.clientY - canvas_y) / viewport_scale;
+	get_mouse_pos_from_event(e);
+}
+
+function is_mouse_in_canvas() {
+	return mouse_x >= 0 && mouse_y >= 0 && mouse_x < width && mouse_y < height;
 }
 
 function lerp(a, b, x) {
@@ -93,7 +131,7 @@ function vertices_to_uint8_array(vertices) {
 			VERTEX_SIZE * i + VERTEX_POS);
 		array.set(new Uint8Array((new Float32Array([vertex.uv.x, vertex.uv.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_UV);
-		array.set(new Uint8Array((new Float32Array(vertex.color)).buffer),
+		array.set(new Uint8Array((new Float32Array([vertex.color.r, vertex.color.g, vertex.color.b, vertex.color.a])).buffer),
 			VERTEX_SIZE * i + VERTEX_COLOR);
 	}
 	return array;
@@ -114,59 +152,65 @@ function convert_viewport_pos_to_uv(pos) {
 }
 
 function on_click(e) {
-	mouse_x = (e.clientX - canvas_x) / viewport_scale;
-	mouse_y = (e.clientY - canvas_y) / viewport_scale;
-	if (ui_shown) {
-		if (ui_is_editing_shape()) {
-			if (ui_shape.length < 3) {
-				let vertex = {
-					x: mouse_x,
-					y: mouse_y,
+	get_mouse_pos_from_event(e);
+	if (!is_mouse_in_canvas()) {
+		return;
+	}
+	if (!ui_shown) {
+		return;
+	}
+	
+	if (ui_is_editing_shape()) {
+		if (ui_shape.length < 3) {
+			let vertex = {
+				x: mouse_x,
+				y: mouse_y,
+			};
+			Object.preventExtensions(vertex);
+			ui_shape.push(vertex);
+		} else {
+			if (ui_make_parallelogram) {
+				const v0 = ui_shape[0];
+				const v1 = ui_shape[1];
+				const v2 = ui_shape[2];
+				let v3 = {
+					x: v2.x - v1.x + v0.x,
+					y: v2.y - v1.y + v0.y,
 				};
-				Object.preventExtensions(vertex);
-				ui_shape.push(vertex);
-			} else {
-				if (ui_make_parallelogram) {
-					const v0 = ui_shape[0];
-					const v1 = ui_shape[1];
-					const v2 = ui_shape[2];
-					let v3 = {
-						x: v2.x - v1.x + v0.x,
-						y: v2.y - v1.y + v0.y,
-					};
-					ui_shape.push(v3);
+				ui_shape.push(v3);
+			}
+			
+			switch (ui_tool) {
+			case TOOL_VERTEX:
+				ui_tool = TOOL_UV;
+				ui_vertex_positions = ui_shape;
+				ui_shape = [];
+				break;
+			case TOOL_UV: {
+				let pos = ui_vertex_positions;
+				let uv = ui_shape;
+				let vertices = [];
+				for (let i in pos) {
+					let color = hex_to_rgba(ui_get_color());
+					color.a = ui_get_color_mix();
+					vertices.push({
+						pos: convert_viewport_pos_to_ndc(pos[i]),
+						uv: convert_viewport_pos_to_uv(uv[i]),
+						color: color,
+					});
 				}
-				
-				switch (ui_tool) {
-				case TOOL_VERTEX:
-					ui_tool = TOOL_UV;
-					ui_vertex_positions = ui_shape;
-					ui_shape = [];
-					break;
-				case TOOL_UV: {
-					let pos = ui_vertex_positions;
-					let uv = ui_shape;
-					let vertices = [];
-					for (let i in pos) {
-						vertices.push({
-							pos: convert_viewport_pos_to_ndc(pos[i]),
-							uv: convert_viewport_pos_to_uv(uv[i]),
-							color: '#ffffff',
-						});
-					}
-					console.log(vertices);
-					if (vertices.length === 3) {
-						vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
-					} else if (vertices.length === 4) {
-						vertices_push_quad(vertices[0], vertices[1], vertices[2], vertices[3]);
-					} else {
-						console.error('bad shape length');
-					}
-					ui_tool = TOOL_VERTEX;
-					ui_shape = [];
-					ui_vertex_positions = [];
-					} break;
+				console.log(vertices);
+				if (vertices.length === 3) {
+					vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
+				} else if (vertices.length === 4) {
+					vertices_push_quad(vertices[0], vertices[1], vertices[2], vertices[3]);
+				} else {
+					console.error('bad shape length');
 				}
+				ui_tool = TOOL_VERTEX;
+				ui_shape = [];
+				ui_vertex_positions = [];
+				} break;
 			}
 		}
 	}
@@ -175,7 +219,10 @@ function on_click(e) {
 function startup() {
 	page = document.getElementById('page');
 	canvas = document.getElementById('canvas');
+	ui_div = document.getElementById('ui');
 	ui_canvas = document.getElementById('ui-canvas');
+	ui_color_input = document.getElementById('color-input');
+	ui_color_mix_input = document.getElementById('color-mix-input');
 	ui_ctx = ui_canvas.getContext('2d');
 	
 	gl = canvas.getContext('webgl');
@@ -254,7 +301,7 @@ void main() {
 			let y0 = y * 2.0 / 3.0 - 1.0;
 			let x1 = x0 + k;
 			let y1 = y0 + k;
-			let color = [1.0, 0.5, 1.0, 0.1];
+			let color = {r: 1.0, g: 0.5, b: 1.0, a: 0.1};
 			vertices_push_quad(
 				{pos: {x: x0, y: y0}, uv: {x: 0.0, y: 0.0}, color: color},
 				{pos: {x: x1, y: y0}, uv: {x: 1.0, y: 0.0}, color: color},
@@ -266,7 +313,7 @@ void main() {
 	}
 	{
 		let k = 0.5 / 3.0;
-		let color = [0.5, 0.5, 1.0, 1.0];
+		let color = {r: 0.5, g: 0.5, b: 1.0, a: 1.0};
 		vertices_push_quad(
 			{pos: {x: -k, y: -k}, uv: {x: 0.0, y: 0.0}, color: color},
 			{pos: {x: k,  y: -k}, uv: {x: 1.0, y: 0.0}, color: color},
@@ -299,16 +346,15 @@ function frame(time) {
 	
 	
 	let aspect_ratio = width / height;
+	let canvas_x = 0, canvas_y = 0;
 	if (page_width / aspect_ratio < page_height) {
 		// landscape mode
-		canvas_x = 0;
 		canvas_y = Math.floor((page_height - viewport_height) * 0.5);
 		viewport_width = page_width;
 		viewport_height = Math.floor(page_width / aspect_ratio);
 	} else {
 		// portrait mode
 		canvas_x = Math.floor((page_width - viewport_width) * 0.5);
-		canvas_y = 0;
 		viewport_width = Math.floor(page_height * aspect_ratio);
 		viewport_height = page_height;
 	}
@@ -363,13 +409,13 @@ function frame(time) {
 	if (ui_shown) {
 		if (ui_tool === TOOL_UV) {
 			ui_polygon(ui_vertex_positions, {
-				strokeStyle: '#ffffff',
-				fillStyle: '#ffffff44',
+				strokeStyle: ui_get_color(),
+				fillStyle: ui_get_color() + '44',
 			});
 		}
 		
 		if (ui_is_editing_shape()) {
-			let color = '#ffffff';
+			let color = ui_get_color();
 			if (ui_tool == TOOL_UV) {
 				color = '#3333ff';
 			}
@@ -378,7 +424,7 @@ function frame(time) {
 				fillStyle: color + '44',
 			};
 			
-			if (ui_shape.length < 3) {
+			if (ui_shape.length < 3 && is_mouse_in_canvas()) {
 				// vertex where the mouse is
 				ui_circle(mouse_x, mouse_y, vertex_radius, options);
 				let vmouse = {x: mouse_x, y: mouse_y};
