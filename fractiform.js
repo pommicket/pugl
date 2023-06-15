@@ -2,7 +2,6 @@
 
 /*
 TODO:
-- why isnt vertex buffer updated 3:
 - custom triangles and parallelograms
 - synthlike interface? (change name to fraxynth?)
 - grid
@@ -90,9 +89,9 @@ function vertices_to_uint8_array(vertices) {
 	let array = new Uint8Array(vertices.length * VERTEX_SIZE);
 	for (var i = 0; i < vertices.length; i++) {
 		let vertex = vertices[i];
-		array.set(new Uint8Array((new Float32Array(vertex.pos)).buffer),
+		array.set(new Uint8Array((new Float32Array([vertex.pos.x, vertex.pos.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_POS);
-		array.set(new Uint8Array((new Float32Array(vertex.uv)).buffer),
+		array.set(new Uint8Array((new Float32Array([vertex.uv.x, vertex.uv.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_UV);
 		array.set(new Uint8Array((new Float32Array(vertex.color)).buffer),
 			VERTEX_SIZE * i + VERTEX_COLOR);
@@ -100,6 +99,19 @@ function vertices_to_uint8_array(vertices) {
 	return array;
 }
 
+function convert_viewport_pos_to_ndc(pos) {
+	return {
+		x: pos.x / width * 2 - 1,
+		y: 1 - pos.y / height * 2,
+	};
+}
+
+function convert_viewport_pos_to_uv(pos) {
+	return {
+		x: pos.x / width,
+		y: pos.y / height,
+	};
+}
 
 function on_click(e) {
 	mouse_x = (e.clientX - canvas_x) / viewport_scale;
@@ -137,11 +149,12 @@ function on_click(e) {
 					let vertices = [];
 					for (let i in pos) {
 						vertices.push({
-							pos: [pos[i].x, pos[i].y],
-							uv: [uv[i].x, uv[i].y],
+							pos: convert_viewport_pos_to_ndc(pos[i]),
+							uv: convert_viewport_pos_to_uv(uv[i]),
 							color: '#ffffff',
 						});
 					}
+					console.log(vertices);
 					if (vertices.length === 3) {
 						vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
 					} else if (vertices.length === 4) {
@@ -151,6 +164,7 @@ function on_click(e) {
 					}
 					ui_tool = TOOL_VERTEX;
 					ui_shape = [];
+					ui_vertex_positions = [];
 					} break;
 				}
 			}
@@ -166,8 +180,12 @@ function startup() {
 	
 	gl = canvas.getContext('webgl');
 	if (gl === null) {
-		show_error('your browser doesnt support webgl.\noh well.');
-		return;
+		// support for very-old-but-not-ancient browsers
+		gl = canvas.getContext('experimental-webgl');
+		if (gl === null) {
+			show_error('your browser doesnt support webgl.\noh well.');
+			return;
+		}
 	}
 	
 	program_main = compile_program('main', `
@@ -238,10 +256,10 @@ void main() {
 			let y1 = y0 + k;
 			let color = [1.0, 0.5, 1.0, 0.1];
 			vertices_push_quad(
-				{pos: [x0, y0], uv: [0.0, 0.0], color: color},
-				{pos: [x1, y0], uv: [1.0, 0.0], color: color},
-				{pos: [x1, y1], uv: [1.0, 1.0], color: color},
-				{pos: [x0, y1], uv: [0.0, 1.0], color: color},
+				{pos: {x: x0, y: y0}, uv: {x: 0.0, y: 0.0}, color: color},
+				{pos: {x: x1, y: y0}, uv: {x: 1.0, y: 0.0}, color: color},
+				{pos: {x: x1, y: y1}, uv: {x: 1.0, y: 1.0}, color: color},
+				{pos: {x: x0, y: y1}, uv: {x: 0.0, y: 1.0}, color: color},
 			);
 			
 		}
@@ -250,10 +268,10 @@ void main() {
 		let k = 0.5 / 3.0;
 		let color = [0.5, 0.5, 1.0, 1.0];
 		vertices_push_quad(
-			{pos: [-k, -k], uv: [0.0, 0.0], color: color},
-			{pos: [k,  -k], uv: [1.0, 0.0], color: color},
-			{pos: [k,   k], uv: [1.0, 1.0], color: color},
-			{pos: [-k,  k], uv: [0.0, 1.0], color: color},
+			{pos: {x: -k, y: -k}, uv: {x: 0.0, y: 0.0}, color: color},
+			{pos: {x: k,  y: -k}, uv: {x: 1.0, y: 0.0}, color: color},
+			{pos: {x: k,  y: k},  uv: {x: 1.0, y: 1.0}, color: color},
+			{pos: {x: -k, y: k},  uv: {x: 0.0, y: 1.0}, color: color},
 		);
 	}
 	
@@ -309,6 +327,7 @@ function frame(time) {
 		let vertex_data = vertices_to_uint8_array(vertices_main);
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 		gl.bufferData(gl.ARRAY_BUFFER, vertex_data, gl.DYNAMIC_DRAW);
+		vertices_changed = false;
 	}
 	
 	
@@ -378,8 +397,15 @@ function frame(time) {
 				let v2 = ui_shape[2];
 				let vm = {x: mouse_x, y: mouse_y};
 				let vm0 = {x: vm.x - v0.x, y: vm.y - v0.y};
+				let v10 = {x: v1.x - v0.x, y: v1.y - v0.y};
 				let v20 = {x: v2.x - v0.x, y: v2.y - v0.y};
-				ui_make_parallelogram = vm0.x * v20.y - vm0.y * v20.x > 0;
+				ui_make_parallelogram = Math.sign(vm0.x * v20.y - vm0.y * v20.x) !==
+					Math.sign(v10.x * v20.y - v10.y * v20.x);
+				
+				if (ui_vertex_positions.length > 0) {
+					ui_make_parallelogram = ui_vertex_positions.length === 4;
+				}
+				
 				if (ui_make_parallelogram) {
 					// parallelogram
 					let v3 = {x: v2.x - v1.x + v0.x, y: v2.y - v1.y + v0.y};
