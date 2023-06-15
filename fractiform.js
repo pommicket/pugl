@@ -2,6 +2,7 @@
 
 /*
 TODO:
+- why isnt vertex buffer updated 3:
 - custom triangles and parallelograms
 - synthlike interface? (change name to fraxynth?)
 - grid
@@ -22,10 +23,21 @@ let framebuffer_color_texture;
 let sampler_texture;
 let current_time;
 let vertices_main = [];
-let show_ui = true;
+let vertices_changed = false;
+let ui_shown = true;
 let mouse_x, mouse_y;
 let canvas_x, canvas_y;
 let viewport_width, viewport_height, viewport_scale;
+let ui_shape = [];
+let ui_make_parallelogram = false;
+let ui_vertex_positions = [];
+
+const TOOL_VERTEX = 1;
+const TOOL_UV = 2;
+
+let ui_tool = TOOL_VERTEX;
+
+const vertex_radius = 10;
 
 let width = 1920, height = 1920;
 
@@ -39,7 +51,7 @@ function on_key_press(e) {
 		perform_step();
 		break;
 	case 9: // tab
-		show_ui = !show_ui;
+		ui_shown = !ui_shown;
 		e.preventDefault();
 		break;
 	}
@@ -54,13 +66,19 @@ function lerp(a, b, x) {
 	return a + (b - a) * x;
 }
 
-function vertices_push_quad(vertices, v0, v1, v2, v3) {
-	vertices.push(v0);
-	vertices.push(v1);
-	vertices.push(v2);
-	vertices.push(v0);
-	vertices.push(v2);
-	vertices.push(v3);
+function vertices_push_triangle(v0, v1, v2) {
+	Object.preventExtensions(v0);
+	Object.preventExtensions(v1);
+	Object.preventExtensions(v2);
+	vertices_main.push(v0);
+	vertices_main.push(v1);
+	vertices_main.push(v2);
+	vertices_changed = true;
+}
+
+function vertices_push_quad(v0, v1, v2, v3) {
+	vertices_push_triangle(v0, v1, v2);
+	vertices_push_triangle(v0, v2, v3);
 }
 
 const VERTEX_POS = 0;
@@ -80,6 +98,64 @@ function vertices_to_uint8_array(vertices) {
 			VERTEX_SIZE * i + VERTEX_COLOR);
 	}
 	return array;
+}
+
+
+function on_click(e) {
+	mouse_x = (e.clientX - canvas_x) / viewport_scale;
+	mouse_y = (e.clientY - canvas_y) / viewport_scale;
+	if (ui_shown) {
+		if (ui_is_editing_shape()) {
+			if (ui_shape.length < 3) {
+				let vertex = {
+					x: mouse_x,
+					y: mouse_y,
+				};
+				Object.preventExtensions(vertex);
+				ui_shape.push(vertex);
+			} else {
+				if (ui_make_parallelogram) {
+					const v0 = ui_shape[0];
+					const v1 = ui_shape[1];
+					const v2 = ui_shape[2];
+					let v3 = {
+						x: v2.x - v1.x + v0.x,
+						y: v2.y - v1.y + v0.y,
+					};
+					ui_shape.push(v3);
+				}
+				
+				switch (ui_tool) {
+				case TOOL_VERTEX:
+					ui_tool = TOOL_UV;
+					ui_vertex_positions = ui_shape;
+					ui_shape = [];
+					break;
+				case TOOL_UV: {
+					let pos = ui_vertex_positions;
+					let uv = ui_shape;
+					let vertices = [];
+					for (let i in pos) {
+						vertices.push({
+							pos: [pos[i].x, pos[i].y],
+							uv: [uv[i].x, uv[i].y],
+							color: '#ffffff',
+						});
+					}
+					if (vertices.length === 3) {
+						vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
+					} else if (vertices.length === 4) {
+						vertices_push_quad(vertices[0], vertices[1], vertices[2], vertices[3]);
+					} else {
+						console.error('bad shape length');
+					}
+					ui_tool = TOOL_VERTEX;
+					ui_shape = [];
+					} break;
+				}
+			}
+		}
+	}
 }
 
 function startup() {
@@ -161,7 +237,7 @@ void main() {
 			let x1 = x0 + k;
 			let y1 = y0 + k;
 			let color = [1.0, 0.5, 1.0, 0.1];
-			vertices_push_quad(vertices_main,
+			vertices_push_quad(
 				{pos: [x0, y0], uv: [0.0, 0.0], color: color},
 				{pos: [x1, y0], uv: [1.0, 0.0], color: color},
 				{pos: [x1, y1], uv: [1.0, 1.0], color: color},
@@ -173,7 +249,7 @@ void main() {
 	{
 		let k = 0.5 / 3.0;
 		let color = [0.5, 0.5, 1.0, 1.0];
-		vertices_push_quad(vertices_main,
+		vertices_push_quad(
 			{pos: [-k, -k], uv: [0.0, 0.0], color: color},
 			{pos: [k,  -k], uv: [1.0, 0.0], color: color},
 			{pos: [k,   k], uv: [1.0, 1.0], color: color},
@@ -181,9 +257,6 @@ void main() {
 		);
 	}
 	
-	let vertex_data = vertices_to_uint8_array(vertices_main);
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
-	gl.bufferData(gl.ARRAY_BUFFER, vertex_data, gl.DYNAMIC_DRAW);
 	
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
@@ -193,6 +266,11 @@ void main() {
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
 	window.addEventListener('mousemove', on_mouse_move);
+	window.addEventListener('click', on_click);
+}
+
+function ui_is_editing_shape() {
+	return ui_tool == TOOL_VERTEX || ui_tool == TOOL_UV;
 }
 
 function frame(time) {
@@ -227,11 +305,18 @@ function frame(time) {
 	ui_canvas.style.left = canvas_x + 'px';
 	ui_canvas.style.top = canvas_y + 'px';
 	
+	if (vertices_changed) {
+		let vertex_data = vertices_to_uint8_array(vertices_main);
+		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
+		gl.bufferData(gl.ARRAY_BUFFER, vertex_data, gl.DYNAMIC_DRAW);
+	}
+	
 	
 	let step = true;
 	if (step) {
 		perform_step();
 	}
+	
 	
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.viewport(0, 0, viewport_width, viewport_height);
@@ -256,11 +341,68 @@ function frame(time) {
 	
 	ui_ctx.clearRect(0, 0, width, height);
 	
-	if (show_ui) {
-		ui_circle(mouse_x, mouse_y, 30, {
-			strokeStyle: '#f00',
-			fillStyle: '#f004',
-		});
+	if (ui_shown) {
+		if (ui_tool === TOOL_UV) {
+			ui_polygon(ui_vertex_positions, {
+				strokeStyle: '#ffffff',
+				fillStyle: '#ffffff44',
+			});
+		}
+		
+		if (ui_is_editing_shape()) {
+			let color = '#ffffff';
+			if (ui_tool == TOOL_UV) {
+				color = '#3333ff';
+			}
+			let options = {
+				strokeStyle: color,
+				fillStyle: color + '44',
+			};
+			
+			if (ui_shape.length < 3) {
+				// vertex where the mouse is
+				ui_circle(mouse_x, mouse_y, vertex_radius, options);
+				let vmouse = {x: mouse_x, y: mouse_y};
+				
+				if (ui_shape.length === 1) {
+					ui_line(ui_shape[0].x, ui_shape[0].y, vmouse.x, vmouse.y, options);
+				} else if (ui_shape.length === 2) {
+					// triangle preview
+					ui_polygon([ui_shape[0], ui_shape[1], vmouse], options);
+				}
+			}
+			
+			if (ui_shape.length >= 3) {
+				let v0 = ui_shape[0];
+				let v1 = ui_shape[1];
+				let v2 = ui_shape[2];
+				let vm = {x: mouse_x, y: mouse_y};
+				let vm0 = {x: vm.x - v0.x, y: vm.y - v0.y};
+				let v20 = {x: v2.x - v0.x, y: v2.y - v0.y};
+				ui_make_parallelogram = vm0.x * v20.y - vm0.y * v20.x > 0;
+				if (ui_make_parallelogram) {
+					// parallelogram
+					let v3 = {x: v2.x - v1.x + v0.x, y: v2.y - v1.y + v0.y};
+					ui_polygon([v0, v1, v2, v3], options);
+					ui_circle(v3.x, v3.y, vertex_radius, options);
+				} else {
+					// triangle
+					ui_polygon([v0, v1, v2], options);
+				}
+			}
+			for (let i in ui_shape) {
+				let vertex = ui_shape[i];
+				
+				if (i > 0 && ui_shape.length < 3) {
+					let prev = ui_shape[i - 1];
+					ui_line(prev.x, prev.y, vertex.x, vertex.y, options);
+				}
+				
+				ui_circle(vertex.x, vertex.y, vertex_radius, options);
+			}
+			
+		}
+		
 	}
 }
 
@@ -275,6 +417,37 @@ function ui_circle(x, y, r, options) {
 	ui_ctx.stroke();
 	ui_ctx.fill();
 }
+
+function ui_line(x0, y0, x1, y1, options) {
+	x0 *= viewport_scale;
+	y0 *= viewport_scale;
+	x1 *= viewport_scale;
+	y1 *= viewport_scale;
+	ui_ctx.beginPath();
+	ui_ctx.strokeStyle = 'strokeStyle' in options ? options.strokeStyle : '#000';
+	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
+	ui_ctx.moveTo(x0, y0);
+	ui_ctx.lineTo(x1, y1);
+	ui_ctx.stroke();
+}
+
+function ui_polygon(vertices, options) {
+	console.assert(vertices.length >= 3, 'polygon must have at least 3 vertices');
+	ui_ctx.beginPath();
+	ui_ctx.strokeStyle = 'strokeStyle' in options ? options.strokeStyle : '#000';
+	ui_ctx.fillStyle = 'fillStyle' in options ? options.fillStyle : 'transparent';
+	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
+	ui_ctx.moveTo(vertices[0].x * viewport_scale, vertices[0].y * viewport_scale);
+	for (let i in vertices) {
+		if (i == 0) continue;
+		const v = vertices[i];
+		ui_ctx.lineTo(v.x * viewport_scale, v.y * viewport_scale);
+	}
+	ui_ctx.lineTo(vertices[0].x * viewport_scale, vertices[0].y * viewport_scale);
+	ui_ctx.stroke();
+	ui_ctx.fill();
+}
+
 
 function perform_step() {
 	if (width === -1) {
