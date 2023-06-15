@@ -1,28 +1,53 @@
 'use strict';
 
+/*
+TODO:
+- custom triangles and parallelograms
+- synthlike interface? (change name to fraxynth?)
+- grid
+*/
+
 let gl;
 let program_main;
 let program_post;
 let vertex_buffer_rect;
 let vertex_buffer_main;
 let vertex_data_main;
+let page;
 let canvas;
+let ui_canvas;
+let ui_ctx;
 let framebuffer;
 let framebuffer_color_texture;
 let sampler_texture;
 let current_time;
 let vertices_main = [];
+let show_ui = true;
+let mouse_x, mouse_y;
+let canvas_x, canvas_y;
+let viewport_width, viewport_height, viewport_scale;
 
 let width = 1920, height = 1920;
 
 window.addEventListener('load', startup);
 
-function handle_key_press(e) {
+function on_key_press(e) {
 	let code = e.keyCode;
+	console.log('key press:', code);
 	switch (code) {
-	case 32:
+	case 32: // space
 		perform_step();
+		break;
+	case 9: // tab
+		show_ui = !show_ui;
+		e.preventDefault();
+		break;
 	}
+}
+
+function on_mouse_move(e) {
+	mouse_x = (e.clientX - canvas_x) / viewport_scale;
+	mouse_y = (e.clientY - canvas_y) / viewport_scale;
 }
 
 function lerp(a, b, x) {
@@ -58,8 +83,10 @@ function vertices_to_uint8_array(vertices) {
 }
 
 function startup() {
+	page = document.getElementById('page');
 	canvas = document.getElementById('canvas');
-	window.addEventListener('keydown', handle_key_press);
+	ui_canvas = document.getElementById('ui-canvas');
+	ui_ctx = ui_canvas.getContext('2d');
 	
 	gl = canvas.getContext('webgl');
 	if (gl === null) {
@@ -155,7 +182,6 @@ void main() {
 	}
 	
 	let vertex_data = vertices_to_uint8_array(vertices_main);
-	console.log(new Float32Array(vertex_data.buffer));
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	gl.bufferData(gl.ARRAY_BUFFER, vertex_data, gl.DYNAMIC_DRAW);
 	
@@ -165,15 +191,42 @@ void main() {
 	set_up_framebuffer();
 	
 	frame(0.0);
+	window.addEventListener('keydown', on_key_press);
+	window.addEventListener('mousemove', on_mouse_move);
 }
 
 function frame(time) {
 	current_time = time * 1e-3;
 	
-	let canvas_width = canvas.offsetWidth;
-	let canvas_height = canvas.offsetHeight;
-	canvas.width = canvas_width;
-	canvas.height = canvas_height;
+	let page_width = page.offsetWidth;
+	let page_height = page.offsetHeight;
+	
+	
+	let aspect_ratio = width / height;
+	if (page_width / aspect_ratio < page_height) {
+		// landscape mode
+		canvas_x = 0;
+		canvas_y = Math.floor((page_height - viewport_height) * 0.5);
+		viewport_width = page_width;
+		viewport_height = Math.floor(page_width / aspect_ratio);
+	} else {
+		// portrait mode
+		canvas_x = Math.floor((page_width - viewport_width) * 0.5);
+		canvas_y = 0;
+		viewport_width = Math.floor(page_height * aspect_ratio);
+		viewport_height = page_height;
+	}
+	viewport_scale = viewport_width / width;
+	
+	canvas.width = viewport_width;
+	canvas.height = viewport_height;
+	canvas.style.left = canvas_x + 'px';
+	canvas.style.top = canvas_y + 'px';
+	ui_canvas.width = viewport_width;
+	ui_canvas.height = viewport_height;
+	ui_canvas.style.left = canvas_x + 'px';
+	ui_canvas.style.top = canvas_y + 'px';
+	
 	
 	let step = true;
 	if (step) {
@@ -181,20 +234,9 @@ function frame(time) {
 	}
 	
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	gl.viewport(0, 0, canvas_width, canvas_height);
+	gl.viewport(0, 0, viewport_width, viewport_height);
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT);
-	
-	let aspect_ratio = width / height;
-	if (canvas_width / aspect_ratio < canvas_height) {
-		// landscape mode
-		let viewport_height = Math.floor(canvas_width / aspect_ratio);
-		gl.viewport(0, Math.floor((canvas_height - viewport_height) * 0.5), canvas_width, viewport_height);
-	} else {
-		// portrait mode
-		let viewport_width = Math.floor(canvas_height * aspect_ratio);
-		gl.viewport(Math.floor((canvas_width - viewport_width) * 0.5), 0, viewport_width, canvas_height);
-	}
 	
 	gl.useProgram(program_post);
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_rect);
@@ -211,6 +253,27 @@ function frame(time) {
 		return;
 	}
 	requestAnimationFrame(frame);
+	
+	ui_ctx.clearRect(0, 0, width, height);
+	
+	if (show_ui) {
+		ui_circle(mouse_x, mouse_y, 30, {
+			strokeStyle: '#f00',
+			fillStyle: '#f004',
+		});
+	}
+}
+
+function ui_circle(x, y, r, options) {
+	x *= viewport_scale;
+	y *= viewport_scale;
+	ui_ctx.beginPath();
+	ui_ctx.strokeStyle = 'strokeStyle' in options ? options.strokeStyle : '#000';
+	ui_ctx.fillStyle = 'fillStyle' in options ? options.fillStyle : 'transparent';
+	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
+	ui_ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
+	ui_ctx.stroke();
+	ui_ctx.fill();
 }
 
 function perform_step() {

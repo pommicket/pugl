@@ -13,9 +13,15 @@
 		overflow: hidden;
 	}
 	
-	#canvas {
+	#page {
 		width: 100vw;
 		height: 100vh;
+	}
+	
+	#canvas, #ui-canvas {
+		position: absolute;
+		left: 0;
+		top: 0;
 	}
 	
 	.error {
@@ -51,10 +57,13 @@
 <body>
 <script src="fractiform.js" type="text/javascript"></script>
 
-<canvas id="canvas">
-  Your browser doesn't support &lt;canvas&gt;<br>
-  This page won't work for you.
-</canvas>
+<div id="page">
+	<canvas id="canvas">
+	  Your browser doesn't support &lt;canvas&gt;<br>
+	  This page won't work for you.
+	</canvas>
+	<canvas id="ui-canvas"></canvas>
+</div>
 
 <dialog id="error-dialog">
   <pre id="error-message" class="error"></pre>
