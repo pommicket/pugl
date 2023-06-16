@@ -36,7 +36,7 @@ const TOOL_TRIANGLE = 1;
 const TOOL_UV = 2;
 const TOOL_SELECT = 3;
 
-let ui_tool = TOOL_TRIANGLE;
+let ui_tool;
 
 const vertex_radius = 10;
 
@@ -88,6 +88,11 @@ function ui_set_tool(tool) {
 	}
 	ui_escape_tool();
 	ui_tool = tool;
+	let tool_buttons = document.getElementsByClassName('tool-button');
+	for (let i = 0; i < tool_buttons.length; i++) {
+		let button = tool_buttons[i];
+		button.dataset.selected = parseInt(button.dataset.tool) === tool;
+	}
 }
 
 function on_key_press(e) {
@@ -280,48 +285,33 @@ function startup() {
 	
 	vertex_buffer_main = gl.createBuffer();
 	
-	/*
-	sierpinski carpet
-	for (let y = 0; y < 3; ++y) {
-		for (let x = 0; x < 3; ++x) {
-			if (x == 1 && y == 1) continue;
-			let k = 2.0 / 3.0;
-			let x0 = x * 2.0 / 3.0 - 1.0;
-			let y0 = y * 2.0 / 3.0 - 1.0;
-			let x1 = x0 + k;
-			let y1 = y0 + k;
-			let color = {r: 1.0, g: 0.5, b: 1.0, a: 0.1};
-			vertices_push_quad(
-				{pos: {x: x0, y: y0}, uv: {x: 0.0, y: 0.0}, color: color},
-				{pos: {x: x1, y: y0}, uv: {x: 1.0, y: 0.0}, color: color},
-				{pos: {x: x1, y: y1}, uv: {x: 1.0, y: 1.0}, color: color},
-				{pos: {x: x0, y: y1}, uv: {x: 0.0, y: 1.0}, color: color},
-			);
-			
-		}
-	}
-	{
-		let k = 0.5 / 3.0;
-		let color = {r: 0.5, g: 0.5, b: 1.0, a: 1.0};
-		vertices_push_quad(
-			{pos: {x: -k, y: -k}, uv: {x: 0.0, y: 0.0}, color: color},
-			{pos: {x: k,  y: -k}, uv: {x: 1.0, y: 0.0}, color: color},
-			{pos: {x: k,  y: k},  uv: {x: 1.0, y: 1.0}, color: color},
-			{pos: {x: -k, y: k},  uv: {x: 0.0, y: 1.0}, color: color},
-		);
-	}
-	*/
-	
-	
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
 	
 	set_up_framebuffer();
 	
+	ui_set_tool(TOOL_TRIANGLE);
+	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
 	window.addEventListener('mousemove', on_mouse_move);
 	window.addEventListener('click', on_click);
+	{ // set up tool buttons
+		let tool_buttons = document.getElementsByClassName('tool-button');
+		for (let i = 0; i < tool_buttons.length; i++) {
+			let tool_button = tool_buttons[i];
+			tool_button.addEventListener('click', function(e) {
+				let button = e.target;
+				while (button !== null && button.tagName !== 'BUTTON') {
+					button = button.parentElement;
+				}
+				console.assert(button !== null, 'what how did the event listener fire then');
+				let n = parseInt(button.dataset.tool);
+				console.assert(!isNaN(n), 'bad data-tool value: ' + button.dataset.tool);
+				ui_set_tool(n);
+			});
+		}
+	}
 }
 
 function ui_is_editing_shape() {
