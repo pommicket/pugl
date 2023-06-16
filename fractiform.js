@@ -58,6 +58,14 @@ function ui_get_color_mix() {
 	return ui_color_mix_input.value;
 }
 
+function ui_get_color_rgba() {
+	let alpha = Math.floor(ui_get_color_mix() * 255).toString(16);
+	while (alpha.length < 2) {
+		alpha = '0' + alpha;
+	}
+	return ui_get_color() + alpha;
+}
+
 function hex_to_rgba(hex) {
 	return {
 		r: parseInt(hex.substr(1, 2), 16) / 255,
@@ -235,51 +243,12 @@ function startup() {
 		}
 	}
 	
-	program_main = compile_program('main', `
-attribute vec2 v_pos;
-attribute vec2 v_uv;
-attribute vec4 v_color;
-varying vec2 uv;
-varying vec4 color;
-void main() {
-	uv = v_uv;
-	color = v_color;
-	gl_Position = vec4(v_pos, 0.0, 1.0);
-}
-`, `
-#ifdef GL_ES
-precision highp float;
-#endif
-
-uniform sampler2D u_texture;
-varying vec4 color;
-varying vec2 uv;
-
-void main() {
-	gl_FragColor = mix(texture2D(u_texture, uv), vec4(color.xyz, 1.0), color.w);
-}
-`);
+	program_main = compile_program('main', ['main-vertex-shader', 'main-fragment-shader']);
 	if (program_main === null) {
 		return;
 	}
 	
-	program_post = compile_program('main', `
-attribute vec2 v_pos;
-varying vec2 uv;
-void main() {
-	uv = v_pos * 0.5 + 0.5;
-	gl_Position = vec4(v_pos, 0.0, 1.0);
-}
-`, `
-#ifdef GL_ES
-precision highp float;
-#endif
-uniform sampler2D u_texture;
-varying vec2 uv;
-void main() {
-	gl_FragColor = texture2D(u_texture, uv);
-}
-`);
+	program_post = compile_program('post', ['post-vertex-shader', 'post-fragment-shader']);
 	if (program_post === null) {
 		return;
 	}
@@ -293,6 +262,8 @@ void main() {
 	
 	vertex_buffer_main = gl.createBuffer();
 	
+	/*
+	sierpinski carpet
 	for (let y = 0; y < 3; ++y) {
 		for (let x = 0; x < 3; ++x) {
 			if (x == 1 && y == 1) continue;
@@ -321,6 +292,7 @@ void main() {
 			{pos: {x: -k, y: k},  uv: {x: 0.0, y: 1.0}, color: color},
 		);
 	}
+	*/
 	
 	
 	framebuffer_color_texture = gl.createTexture();
@@ -415,25 +387,29 @@ function frame(time) {
 		}
 		
 		if (ui_is_editing_shape()) {
-			let color = ui_get_color();
+			let color = ui_get_color_rgba();
 			if (ui_tool == TOOL_UV) {
-				color = '#3333ff';
+				color = '#3333ff44';
 			}
-			let options = {
-				strokeStyle: color,
-				fillStyle: color + '44',
+			let options_vertex = {
+				strokeStyle: color.substr(0, 7),
+				fillStyle: color,
+			};
+			let options_shape = {
+				strokeStyle: color.substr(0, 7),
+				fillStyle: color.substr(0, 7) + '44',
 			};
 			
 			if (ui_shape.length < 3 && is_mouse_in_canvas()) {
 				// vertex where the mouse is
-				ui_circle(mouse_x, mouse_y, vertex_radius, options);
+				ui_circle(mouse_x, mouse_y, vertex_radius, options_vertex);
 				let vmouse = {x: mouse_x, y: mouse_y};
 				
 				if (ui_shape.length === 1) {
-					ui_line(ui_shape[0].x, ui_shape[0].y, vmouse.x, vmouse.y, options);
+					ui_line(ui_shape[0].x, ui_shape[0].y, vmouse.x, vmouse.y, options_shape);
 				} else if (ui_shape.length === 2) {
 					// triangle preview
-					ui_polygon([ui_shape[0], ui_shape[1], vmouse], options);
+					ui_polygon([ui_shape[0], ui_shape[1], vmouse], options_shape);
 				}
 			}
 			
@@ -455,11 +431,11 @@ function frame(time) {
 				if (ui_make_parallelogram) {
 					// parallelogram
 					let v3 = {x: v2.x - v1.x + v0.x, y: v2.y - v1.y + v0.y};
-					ui_polygon([v0, v1, v2, v3], options);
-					ui_circle(v3.x, v3.y, vertex_radius, options);
+					ui_polygon([v0, v1, v2, v3], options_shape);
+					ui_circle(v3.x, v3.y, vertex_radius, options_vertex);
 				} else {
 					// triangle
-					ui_polygon([v0, v1, v2], options);
+					ui_polygon([v0, v1, v2], options_shape);
 				}
 			}
 			for (let i in ui_shape) {
@@ -467,10 +443,10 @@ function frame(time) {
 				
 				if (i > 0 && ui_shape.length < 3) {
 					let prev = ui_shape[i - 1];
-					ui_line(prev.x, prev.y, vertex.x, vertex.y, options);
+					ui_line(prev.x, prev.y, vertex.x, vertex.y, options_shape);
 				}
 				
-				ui_circle(vertex.x, vertex.y, vertex_radius, options);
+				ui_circle(vertex.x, vertex.y, vertex_radius, options_vertex);
 			}
 			
 		}
@@ -554,15 +530,24 @@ function perform_step() {
 	gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, width, height, 0);
 }
 	
-function compile_program(name, vertex_source, fragment_source) {
-	let vshader = compile_shader(name + ' (vertex)', gl.VERTEX_SHADER, vertex_source);
-	let fshader = compile_shader(name + ' (fragment)', gl.FRAGMENT_SHADER, fragment_source);
-	if (vshader === null || fshader === null) {
-		return null;
-	}
+function compile_program(name, shaders) {
 	let program = gl.createProgram();
-	gl.attachShader(program, vshader);
-	gl.attachShader(program, fshader);
+	for (let i in shaders) {
+		let shader_element = document.getElementById(shaders[i]);
+		let source = shader_element.firstChild.nodeValue;
+		let type = shader_element.getAttribute('type');
+		let gl_type;
+		if (type === 'x-shader/x-vertex') {
+			gl_type = gl.VERTEX_SHADER;
+		} else if (type === 'x-shader/x-fragment') {
+			gl_type = gl.FRAGMENT_SHADER;
+		} else {
+			show_error('unrecognized shader type: ' + type);
+		}
+		let shader = compile_shader(name + ' ' + type, gl_type, source);
+		gl.attachShader(program, shader);
+	}
+	
 	gl.linkProgram(program);
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 		show_error('Error linking shader program:\n' + gl.getProgramInfoLog(program));
@@ -574,7 +559,7 @@ function compile_program(name, vertex_source, fragment_source) {
 function set_up_framebuffer() {
 	framebuffer = gl.createFramebuffer();
 	let sampler_pixels = new Uint8Array(width * height * 4);
-	sampler_pixels.fill(255);
+	sampler_pixels.fill(0);
 	set_up_rgba_texture(sampler_texture, width, height, sampler_pixels);
 	set_up_rgba_texture(framebuffer_color_texture, width, height, null);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);

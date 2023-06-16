@@ -88,6 +88,50 @@
 	</style>
 	<meta charset="utf-8">
 	<meta content="width=device-width,initial-scale=1" name="viewport">
+	<script id="main-vertex-shader" type="x-shader/x-vertex">
+attribute vec2 v_pos;
+attribute vec2 v_uv;
+attribute vec4 v_color;
+varying vec2 uv;
+varying vec4 color;
+void main() {
+	uv = v_uv;
+	color = v_color;
+	gl_Position = vec4(v_pos, 0.0, 1.0);
+}
+	</script>
+	<script id="main-fragment-shader" type="x-shader/x-fragment">
+#ifdef GL_ES
+precision highp float;
+#endif
+
+uniform sampler2D u_texture;
+varying vec4 color;
+varying vec2 uv;
+
+void main() {
+	gl_FragColor = mix(texture2D(u_texture, uv), vec4(color.xyz, 1.0), color.w);
+}
+	</script>
+	
+	<script id="post-vertex-shader" type="x-shader/x-vertex">
+attribute vec2 v_pos;
+varying vec2 uv;
+void main() {
+	uv = v_pos * 0.5 + 0.5;
+	gl_Position = vec4(v_pos, 0.0, 1.0);
+}
+	</script>
+	<script id="post-fragment-shader" type="x-shader/x-fragment">
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D u_texture;
+varying vec2 uv;
+void main() {
+	gl_FragColor = texture2D(u_texture, uv);
+}
+	</script>
 </head>
 
 <body>
@@ -110,7 +154,7 @@
 <div id="ui">
 	<input type="color" value="#ffffff" name="color-input" id="color-input">
 	<label for="color-input">color</label>
-	<input type="range" value="0" min="0" max="1" step="any" name="color-mix-input" id="color-mix-input">
+	<input type="range" value="0.1" min="0" max="1" step="any" name="color-mix-input" id="color-mix-input">
 	<label for="color-mix-input">opacity</label>
 </div>
 
