@@ -27,16 +27,16 @@ let ui_shown = true;
 let mouse_x, mouse_y;
 let viewport_width, viewport_height, viewport_scale;
 let ui_shape = [];
-let ui_make_parallelogram = false;
 let ui_vertex_positions = [];
 let ui_color_input;
 let ui_color_mix_input;
 let ui_div;
 
-const TOOL_VERTEX = 1;
+const TOOL_TRIANGLE = 1;
 const TOOL_UV = 2;
+const TOOL_SELECT = 3;
 
-let ui_tool = TOOL_VERTEX;
+let ui_tool = TOOL_TRIANGLE;
 
 const vertex_radius = 10;
 
@@ -55,7 +55,8 @@ function ui_get_color() {
 }
 
 function ui_get_color_mix() {
-	return ui_color_mix_input.value;
+	let v = parseFloat(ui_color_mix_input.value);
+	return !isNaN(v) && v >= 0.0 && v <= 1.0 ? v : 0.0;
 }
 
 function ui_get_color_rgba() {
@@ -75,16 +76,43 @@ function hex_to_rgba(hex) {
 	};
 }
 
+function ui_escape_tool() {
+	ui_vertex_positions = [];
+	ui_shape = [];
+	ui_tool = TOOL_SELECT;
+}
+
+function ui_set_tool(tool) {
+	if (ui_tool === tool) {
+		return;
+	}
+	ui_escape_tool();
+	ui_tool = tool;
+}
+
 function on_key_press(e) {
 	let code = e.keyCode;
-	console.log('key press:', code);
+	if (e.target.tagName === 'INPUT') {
+		return;
+	}
+	
 	switch (code) {
 	case 32: // space
-		perform_step();
+		if (canvas_is_target)
+			perform_step();
 		break;
 	case 9: // tab
 		set_ui_shown(!ui_shown);
 		e.preventDefault();
+		break;
+	case 27: // escape
+		ui_escape_tool();
+		break;
+	case 49: // 1
+		ui_set_tool(TOOL_SELECT);
+		break;
+	case 50: // 2
+		ui_set_tool(TOOL_TRIANGLE);
 		break;
 	}
 }
@@ -155,7 +183,7 @@ function convert_viewport_pos_to_ndc(pos) {
 function convert_viewport_pos_to_uv(pos) {
 	return {
 		x: pos.x / width,
-		y: pos.y / height,
+		y: 1.0 - pos.y / height,
 	};
 }
 
@@ -169,32 +197,22 @@ function on_click(e) {
 	}
 	
 	if (ui_is_editing_shape()) {
-		if (ui_shape.length < 3) {
-			let vertex = {
-				x: mouse_x,
-				y: mouse_y,
-			};
-			Object.preventExtensions(vertex);
-			ui_shape.push(vertex);
-		} else {
-			if (ui_make_parallelogram) {
-				const v0 = ui_shape[0];
-				const v1 = ui_shape[1];
-				const v2 = ui_shape[2];
-				let v3 = {
-					x: v2.x - v1.x + v0.x,
-					y: v2.y - v1.y + v0.y,
-				};
-				ui_shape.push(v3);
-			}
-			
-			switch (ui_tool) {
-			case TOOL_VERTEX:
+		let vertex = {
+			x: mouse_x,
+			y: mouse_y,
+		};
+		Object.preventExtensions(vertex);
+		ui_shape.push(vertex);
+		switch (ui_tool) {
+		case TOOL_TRIANGLE:
+			if (ui_shape.length === 3) {
 				ui_tool = TOOL_UV;
 				ui_vertex_positions = ui_shape;
 				ui_shape = [];
-				break;
-			case TOOL_UV: {
+			}
+			break;
+		case TOOL_UV:
+			if (ui_shape.length === ui_vertex_positions.length) {
 				let pos = ui_vertex_positions;
 				let uv = ui_shape;
 				let vertices = [];
@@ -215,11 +233,11 @@ function on_click(e) {
 				} else {
 					console.error('bad shape length');
 				}
-				ui_tool = TOOL_VERTEX;
+				ui_tool = TOOL_TRIANGLE;
 				ui_shape = [];
 				ui_vertex_positions = [];
-				} break;
 			}
+			break;
 		}
 	}
 }
@@ -307,7 +325,7 @@ function startup() {
 }
 
 function ui_is_editing_shape() {
-	return ui_tool == TOOL_VERTEX || ui_tool == TOOL_UV;
+	return ui_tool == TOOL_TRIANGLE || ui_tool == TOOL_UV;
 }
 
 function frame(time) {
@@ -381,24 +399,30 @@ function frame(time) {
 	if (ui_shown) {
 		if (ui_tool === TOOL_UV) {
 			ui_polygon(ui_vertex_positions, {
-				strokeStyle: ui_get_color(),
-				fillStyle: ui_get_color() + '44',
+				strokeStyle: '#ffffff',
+				fillStyle: '#ffffff44',
 			});
 		}
 		
 		if (ui_is_editing_shape()) {
-			let color = ui_get_color_rgba();
+			let options_vertex, options_shape;
 			if (ui_tool == TOOL_UV) {
-				color = '#3333ff44';
+				let color = '#3333ff';
+				options_vertex = {
+					strokeStyle: color,
+					fillStyle: color + '44'
+				};
+				options_shape = options_vertex;
+			} else {
+				options_vertex = {
+					strokeStyle: '#ffffff',
+					fillStyle: ui_get_color() + '44',
+				};
+				options_shape = {
+					strokeStyle: '#ffffff',
+					fillStyle: '#ffffff44',
+				};
 			}
-			let options_vertex = {
-				strokeStyle: color.substr(0, 7),
-				fillStyle: color,
-			};
-			let options_shape = {
-				strokeStyle: color.substr(0, 7),
-				fillStyle: color.substr(0, 7) + '44',
-			};
 			
 			if (ui_shape.length < 3 && is_mouse_in_canvas()) {
 				// vertex where the mouse is
@@ -413,31 +437,6 @@ function frame(time) {
 				}
 			}
 			
-			if (ui_shape.length >= 3) {
-				let v0 = ui_shape[0];
-				let v1 = ui_shape[1];
-				let v2 = ui_shape[2];
-				let vm = {x: mouse_x, y: mouse_y};
-				let vm0 = {x: vm.x - v0.x, y: vm.y - v0.y};
-				let v10 = {x: v1.x - v0.x, y: v1.y - v0.y};
-				let v20 = {x: v2.x - v0.x, y: v2.y - v0.y};
-				ui_make_parallelogram = Math.sign(vm0.x * v20.y - vm0.y * v20.x) !==
-					Math.sign(v10.x * v20.y - v10.y * v20.x);
-				
-				if (ui_vertex_positions.length > 0) {
-					ui_make_parallelogram = ui_vertex_positions.length === 4;
-				}
-				
-				if (ui_make_parallelogram) {
-					// parallelogram
-					let v3 = {x: v2.x - v1.x + v0.x, y: v2.y - v1.y + v0.y};
-					ui_polygon([v0, v1, v2, v3], options_shape);
-					ui_circle(v3.x, v3.y, vertex_radius, options_vertex);
-				} else {
-					// triangle
-					ui_polygon([v0, v1, v2], options_shape);
-				}
-			}
 			for (let i in ui_shape) {
 				let vertex = ui_shape[i];
 				
