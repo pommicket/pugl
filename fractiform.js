@@ -28,6 +28,7 @@ let mouse_x, mouse_y;
 let viewport_width, viewport_height, viewport_scale;
 let ui_shape = [];
 let ui_vertices = [];
+let ui_vertex_properties_div;
 let ui_color_input;
 let ui_color_mix_input;
 let ui_div;
@@ -251,6 +252,7 @@ function startup() {
 	ui_canvas = document.getElementById('ui-canvas');
 	ui_color_input = document.getElementById('color-input');
 	ui_color_mix_input = document.getElementById('color-mix-input');
+	ui_vertex_properties_div = document.getElementById('vertex-properties');
 	ui_ctx = ui_canvas.getContext('2d');
 	
 	gl = canvas.getContext('webgl');
@@ -312,10 +314,15 @@ function startup() {
 }
 
 function ui_is_editing_shape() {
-	return ui_tool == TOOL_TRIANGLE || ui_tool == TOOL_UV;
+	return ui_tool === TOOL_TRIANGLE || ui_tool === TOOL_UV;
+}
+
+function ui_is_editing_vertex() {
+	return ui_tool === TOOL_TRIANGLE;
 }
 
 function frame(time) {
+	ui_vertex_properties_div.style.display = ui_is_editing_vertex() ? 'inline-block' : 'none';
 	current_time = time * 1e-3;
 	
 	let page_width = page.offsetWidth;
