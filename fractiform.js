@@ -24,8 +24,9 @@ let current_time;
 let vertices_main = [];
 let vertices_changed = false;
 let ui_shown = true;
-let mouse_x, mouse_y;
-let viewport_width, viewport_height, viewport_scale;
+let mouse_pos = {x: -1e10, y: -1e10};
+Object.preventExtensions(mouse_pos);
+let viewport_width, viewport_height;
 let ui_shape = [];
 let ui_vertices = [];
 let ui_vertex_properties_div;
@@ -123,13 +124,32 @@ function on_key_press(e) {
 	}
 }
 
+
+function ndc_to_px(pos) {
+	let point = {
+		x: (pos.x * 0.5 + 0.5) * viewport_width,
+		y: (-pos.y * 0.5 + 0.5) * viewport_height,
+	};
+	Object.preventExtensions(point);
+	return point;
+}
+
+
+function px_to_ndc(pos) {
+	let point = {
+		x: 2 * pos.x / viewport_width - 1,
+		y: 1 - 2 * pos.y / viewport_height,
+	};
+	Object.preventExtensions(point);
+	return point;
+}
+
+
 function get_mouse_pos_from_event(e) {
 	if (e.target !== canvas && e.target !== ui_canvas) {
-		mouse_x = -1e10;
-		mouse_y = -1e10;
+		mouse_pos = {x: -1e10, y: -1e10};
 	} else {
-		mouse_x = e.offsetX / viewport_scale;
-		mouse_y = e.offsetY / viewport_scale;
+		mouse_pos = px_to_ndc({x: e.offsetX, y: e.offsetY});
 	}
 }
 
@@ -138,7 +158,7 @@ function on_mouse_move(e) {
 }
 
 function is_mouse_in_canvas() {
-	return mouse_x >= 0 && mouse_y >= 0 && mouse_x < width && mouse_y < height;
+	return Math.abs(mouse_pos.x) <= 1 && Math.abs(mouse_pos.y) <= 1;
 }
 
 function lerp(a, b, x) {
@@ -179,20 +199,6 @@ function vertices_to_uint8_array(vertices) {
 	return array;
 }
 
-function convert_viewport_pos_to_ndc(pos) {
-	return {
-		x: pos.x / width * 2 - 1,
-		y: 1 - pos.y / height * 2,
-	};
-}
-
-function convert_viewport_pos_to_uv(pos) {
-	return {
-		x: pos.x / width,
-		y: 1.0 - pos.y / height,
-	};
-}
-
 function on_click(e) {
 	get_mouse_pos_from_event(e);
 	if (!is_mouse_in_canvas()) {
@@ -204,8 +210,8 @@ function on_click(e) {
 	
 	if (ui_is_editing_shape()) {
 		let vertex = {
-			x: mouse_x,
-			y: mouse_y,
+			x: mouse_pos.x,
+			y: mouse_pos.y,
 			color: ui_get_color_rgba(),
 		};
 		Object.preventExtensions(vertex);
@@ -224,8 +230,8 @@ function on_click(e) {
 				let vertices = [];
 				for (let i in ui_vertices) {
 					vertices.push({
-						pos: convert_viewport_pos_to_ndc(ui_vertices[i]),
-						uv: convert_viewport_pos_to_uv(uv[i]),
+						pos: ui_vertices[i],
+						uv: {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5},
 						color: hex_to_rgba(ui_vertices[i].color),
 					});
 				}
@@ -342,7 +348,6 @@ function frame(time) {
 		viewport_width = Math.floor(page_height * aspect_ratio);
 		viewport_height = page_height;
 	}
-	viewport_scale = viewport_width / width;
 	
 	canvas.width = viewport_width;
 	canvas.height = viewport_height;
@@ -412,17 +417,16 @@ function frame(time) {
 			
 			if (ui_shape.length < 3 && is_mouse_in_canvas()) {
 				// vertex where the mouse is
-				ui_circle(mouse_x, mouse_y, vertex_radius, {
+				ui_circle(mouse_pos, vertex_radius, {
 					strokeStyle: options_shape.strokeStyle,
 					fillStyle: ui_tool === TOOL_UV ? color + '44' : ui_get_color_rgba(),
 				});
-				let vmouse = {x: mouse_x, y: mouse_y};
 				
 				if (ui_shape.length === 1) {
-					ui_line(ui_shape[0].x, ui_shape[0].y, vmouse.x, vmouse.y, options_shape);
+					ui_line(ui_shape[0], mouse_pos, options_shape);
 				} else if (ui_shape.length === 2) {
 					// triangle preview
-					ui_polygon([ui_shape[0], ui_shape[1], vmouse], options_shape);
+					ui_polygon([ui_shape[0], ui_shape[1], mouse_pos], options_shape);
 				}
 			}
 			
@@ -431,10 +435,10 @@ function frame(time) {
 				
 				if (i > 0 && ui_shape.length < 3) {
 					let prev = ui_shape[i - 1];
-					ui_line(prev.x, prev.y, vertex.x, vertex.y, options_shape);
+					ui_line(prev, vertex, options_shape);
 				}
 				
-				ui_circle(vertex.x, vertex.y, vertex_radius, {
+				ui_circle(vertex, vertex_radius, {
 					strokeStyle: options_shape.strokeStyle,
 					fillStyle: ui_tool === TOOL_UV ? color + '44' : vertex.color,
 				});
@@ -445,28 +449,25 @@ function frame(time) {
 	}
 }
 
-function ui_circle(x, y, r, options) {
-	x *= viewport_scale;
-	y *= viewport_scale;
+function ui_circle(pos, r, options) {
+	pos = ndc_to_px(pos);
 	ui_ctx.beginPath();
 	ui_ctx.strokeStyle = 'strokeStyle' in options ? options.strokeStyle : '#000';
 	ui_ctx.fillStyle = 'fillStyle' in options ? options.fillStyle : 'transparent';
 	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
-	ui_ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
+	ui_ctx.ellipse(pos.x, pos.y, r, r, 0, 0, 2 * Math.PI);
 	ui_ctx.stroke();
 	ui_ctx.fill();
 }
 
-function ui_line(x0, y0, x1, y1, options) {
-	x0 *= viewport_scale;
-	y0 *= viewport_scale;
-	x1 *= viewport_scale;
-	y1 *= viewport_scale;
+function ui_line(p0, p1, options) {
+	p0 = ndc_to_px(p0);
+	p1 = ndc_to_px(p1);
 	ui_ctx.beginPath();
 	ui_ctx.strokeStyle = 'strokeStyle' in options ? options.strokeStyle : '#000';
 	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
-	ui_ctx.moveTo(x0, y0);
-	ui_ctx.lineTo(x1, y1);
+	ui_ctx.moveTo(p0.x, p0.y);
+	ui_ctx.lineTo(p1.x, p1.y);
 	ui_ctx.stroke();
 }
 
@@ -476,13 +477,14 @@ function ui_polygon(vertices, options) {
 	ui_ctx.strokeStyle = 'strokeStyle' in options ? options.strokeStyle : '#000';
 	ui_ctx.fillStyle = 'fillStyle' in options ? options.fillStyle : 'transparent';
 	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
-	ui_ctx.moveTo(vertices[0].x * viewport_scale, vertices[0].y * viewport_scale);
+	const v0 = ndc_to_px(vertices[0]);
+	ui_ctx.moveTo(v0.x, v0.y);
 	for (let i in vertices) {
 		if (i == 0) continue;
-		const v = vertices[i];
-		ui_ctx.lineTo(v.x * viewport_scale, v.y * viewport_scale);
+		const v = ndc_to_px(vertices[i]);
+		ui_ctx.lineTo(v.x, v.y);
 	}
-	ui_ctx.lineTo(vertices[0].x * viewport_scale, vertices[0].y * viewport_scale);
+	ui_ctx.lineTo(v0.x, v0.y);
 	ui_ctx.stroke();
 	ui_ctx.fill();
 }
