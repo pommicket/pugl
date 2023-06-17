@@ -27,7 +27,7 @@ let ui_shown = true;
 let mouse_x, mouse_y;
 let viewport_width, viewport_height, viewport_scale;
 let ui_shape = [];
-let ui_vertex_positions = [];
+let ui_vertices = [];
 let ui_color_input;
 let ui_color_mix_input;
 let ui_div;
@@ -77,7 +77,7 @@ function hex_to_rgba(hex) {
 }
 
 function ui_escape_tool() {
-	ui_vertex_positions = [];
+	ui_vertices = [];
 	ui_shape = [];
 	ui_tool = TOOL_SELECT;
 }
@@ -205,6 +205,7 @@ function on_click(e) {
 		let vertex = {
 			x: mouse_x,
 			y: mouse_y,
+			color: ui_get_color_rgba(),
 		};
 		Object.preventExtensions(vertex);
 		ui_shape.push(vertex);
@@ -212,25 +213,21 @@ function on_click(e) {
 		case TOOL_TRIANGLE:
 			if (ui_shape.length === 3) {
 				ui_tool = TOOL_UV;
-				ui_vertex_positions = ui_shape;
+				ui_vertices = ui_shape;
 				ui_shape = [];
 			}
 			break;
 		case TOOL_UV:
-			if (ui_shape.length === ui_vertex_positions.length) {
-				let pos = ui_vertex_positions;
+			if (ui_shape.length === ui_vertices.length) {
 				let uv = ui_shape;
 				let vertices = [];
-				for (let i in pos) {
-					let color = hex_to_rgba(ui_get_color());
-					color.a = ui_get_color_mix();
+				for (let i in ui_vertices) {
 					vertices.push({
-						pos: convert_viewport_pos_to_ndc(pos[i]),
+						pos: convert_viewport_pos_to_ndc(ui_vertices[i]),
 						uv: convert_viewport_pos_to_uv(uv[i]),
-						color: color,
+						color: hex_to_rgba(ui_vertices[i].color),
 					});
 				}
-				console.log(vertices);
 				if (vertices.length === 3) {
 					vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
 				} else if (vertices.length === 4) {
@@ -240,7 +237,7 @@ function on_click(e) {
 				}
 				ui_tool = TOOL_TRIANGLE;
 				ui_shape = [];
-				ui_vertex_positions = [];
+				ui_vertices = [];
 			}
 			break;
 		}
@@ -388,35 +385,30 @@ function frame(time) {
 	
 	if (ui_shown) {
 		if (ui_tool === TOOL_UV) {
-			ui_polygon(ui_vertex_positions, {
+			ui_polygon(ui_vertices, {
 				strokeStyle: '#ffffff',
 				fillStyle: '#ffffff44',
 			});
 		}
 		
 		if (ui_is_editing_shape()) {
-			let options_vertex, options_shape;
+			let color;
 			if (ui_tool == TOOL_UV) {
-				let color = '#3333ff';
-				options_vertex = {
-					strokeStyle: color,
-					fillStyle: color + '44'
-				};
-				options_shape = options_vertex;
+				color = '#3333ff';
 			} else {
-				options_vertex = {
-					strokeStyle: '#ffffff',
-					fillStyle: ui_get_color() + '44',
-				};
-				options_shape = {
-					strokeStyle: '#ffffff',
-					fillStyle: '#ffffff44',
-				};
+				color = '#ffffff';
 			}
+			let options_shape = {
+				strokeStyle: color,
+				fillStyle: color + '44',
+			};
 			
 			if (ui_shape.length < 3 && is_mouse_in_canvas()) {
 				// vertex where the mouse is
-				ui_circle(mouse_x, mouse_y, vertex_radius, options_vertex);
+				ui_circle(mouse_x, mouse_y, vertex_radius, {
+					strokeStyle: options_shape.strokeStyle,
+					fillStyle: ui_tool === TOOL_UV ? color + '44' : ui_get_color_rgba(),
+				});
 				let vmouse = {x: mouse_x, y: mouse_y};
 				
 				if (ui_shape.length === 1) {
@@ -435,7 +427,10 @@ function frame(time) {
 					ui_line(prev.x, prev.y, vertex.x, vertex.y, options_shape);
 				}
 				
-				ui_circle(vertex.x, vertex.y, vertex_radius, options_vertex);
+				ui_circle(vertex.x, vertex.y, vertex_radius, {
+					strokeStyle: options_shape.strokeStyle,
+					fillStyle: ui_tool === TOOL_UV ? color + '44' : vertex.color,
+				});
 			}
 			
 		}
