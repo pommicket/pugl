@@ -2,7 +2,6 @@
 
 /*
 TODO:
-- skip UV specification if opacity === 1
 - synthlike interface? (change name to fraxynth?)
 - grid
 */
@@ -69,13 +68,29 @@ function ui_get_color_rgba() {
 	return ui_get_color() + alpha;
 }
 
-function hex_to_rgba(hex) {
-	return {
+function rgba_hex_to_float(hex) {
+	let color = {
 		r: parseInt(hex.substr(1, 2), 16) / 255,
 		g: parseInt(hex.substr(3, 2), 16) / 255,
 		b: parseInt(hex.substr(5, 2), 16) / 255,
 		a: hex.length <= 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255,
 	};
+	Object.preventExtensions(color);
+	return color;
+}
+
+function rgba_float_to_hex(flt) {
+	function comp(x) {
+		x = Math.round(x * 255);
+		if (x < 0) x = 0;
+		if (x > 255) x = 255;
+		let s = x.toString(16);
+		while (s.length < 2) {
+			s = '0' + s;
+		}
+		return s;
+	}
+	return '#' + comp(flt.r) + comp(flt.g) + comp(flt.b) + comp(flt.a);
 }
 
 function ui_escape_tool() {
@@ -189,7 +204,7 @@ function vertices_to_uint8_array(vertices) {
 	let array = new Uint8Array(vertices.length * VERTEX_SIZE);
 	for (var i = 0; i < vertices.length; i++) {
 		let vertex = vertices[i];
-		array.set(new Uint8Array((new Float32Array([vertex.pos.x, vertex.pos.y])).buffer),
+		array.set(new Uint8Array((new Float32Array([vertex.x, vertex.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_POS);
 		array.set(new Uint8Array((new Float32Array([vertex.uv.x, vertex.uv.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_UV);
@@ -197,6 +212,19 @@ function vertices_to_uint8_array(vertices) {
 			VERTEX_SIZE * i + VERTEX_COLOR);
 	}
 	return array;
+}
+
+function ui_commit_vertices() {
+	let vertices = ui_vertices;
+	if (vertices.length === 3) {
+		vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
+	} else if (vertices.length === 4) {
+		vertices_push_quad(vertices[0], vertices[1], vertices[2], vertices[3]);
+	} else {
+		console.error('bad shape length');
+	}
+	ui_shape = [];
+	ui_vertices = [];
 }
 
 function on_click(e) {
@@ -212,9 +240,8 @@ function on_click(e) {
 		let vertex = {
 			x: mouse_pos.x,
 			y: mouse_pos.y,
-			color: ui_get_color_rgba(),
+			color: rgba_hex_to_float(ui_get_color_rgba()),
 		};
-		Object.preventExtensions(vertex);
 		ui_shape.push(vertex);
 		switch (ui_tool) {
 		case TOOL_TRIANGLE:
@@ -222,29 +249,33 @@ function on_click(e) {
 				ui_tool = TOOL_UV;
 				ui_vertices = ui_shape;
 				ui_shape = [];
+				let all_full_alpha = true;
+				for (let i in ui_vertices) {
+					console.log(ui_vertices[i].color.a );
+					if (ui_vertices[i].color.a < 1) {
+						all_full_alpha = false;
+						break;
+					}
+				}
+				if (all_full_alpha) {
+					// skip UV specification; it doesn't matter
+					for (let i in ui_vertices) {
+						ui_vertices[i].uv = {x: 0, y: 0};
+					}
+					ui_commit_vertices();
+					ui_set_tool(TOOL_SELECT);
+				}
 			}
 			break;
 		case TOOL_UV:
 			if (ui_shape.length === ui_vertices.length) {
 				let uv = ui_shape;
-				let vertices = [];
-				for (let i in ui_vertices) {
-					vertices.push({
-						pos: ui_vertices[i],
-						uv: {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5},
-						color: hex_to_rgba(ui_vertices[i].color),
-					});
+				let vertices = ui_vertices;
+				for (let i in vertices) {
+					vertices[i].uv = {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5};
 				}
-				if (vertices.length === 3) {
-					vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
-				} else if (vertices.length === 4) {
-					vertices_push_quad(vertices[0], vertices[1], vertices[2], vertices[3]);
-				} else {
-					console.error('bad shape length');
-				}
-				ui_tool = TOOL_TRIANGLE;
-				ui_shape = [];
-				ui_vertices = [];
+				ui_commit_vertices();
+				ui_set_tool(TOOL_SELECT);
 			}
 			break;
 		}
@@ -440,7 +471,7 @@ function frame(time) {
 				
 				ui_circle(vertex, vertex_radius, {
 					strokeStyle: options_shape.strokeStyle,
-					fillStyle: ui_tool === TOOL_UV ? color + '44' : vertex.color,
+					fillStyle: ui_tool === TOOL_UV ? color + '44' : rgba_float_to_hex(vertex.color),
 				});
 			}
 			
