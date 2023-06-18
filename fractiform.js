@@ -34,7 +34,6 @@ let ui_color_input;
 let ui_color_mix_input;
 let ui_grid_divisions_x_input, ui_grid_divisions_y_input;
 let ui_div;
-let vertex_id = 0;
 let shift_key = false;
 let ctrl_key = false;
 let ui_specify_uv = false;
@@ -146,13 +145,23 @@ function on_key_press(e) {
 		ui_escape_tool();
 		break;
 	case 49: // 1
-		ui_set_tool(TOOL_SELECT);
-		break;
 	case 50: // 2
-		ui_set_tool(TOOL_TRIANGLE);
-		break;
 	case 51: // 3
-		ui_set_tool(TOOL_PARALLELOGRAM);
+	case 52: // 4
+	case 53: // 5
+	case 54: // 6
+	case 55: // 7
+	case 56: // 8
+	case 57: // 9
+		{
+		let tools = document.getElementsByClassName('tool-button');
+		let i = code - 49;
+		if (i < tools.length) {
+			let tool = parseInt(tools[i].dataset.tool);
+			console.assert(!isNaN(tool), 'bad data-tool value');
+			ui_set_tool(tool);
+		}
+		}
 		break;
 	}
 }
@@ -250,8 +259,8 @@ const VERTEX_SIZE = 32;
 
 function get_vertex_data() {
 	let array = new Uint8Array(indices_main.length * VERTEX_SIZE);
-	indices_main.forEach(function (i) {
-		let vertex = vertices_main[i];
+	indices_main.forEach(function (index, i) {
+		let vertex = vertices_main[index];
 		array.set(new Uint8Array((new Float32Array([vertex.x, vertex.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_POS);
 		array.set(new Uint8Array((new Float32Array([vertex.uv.x, vertex.uv.y])).buffer),
@@ -264,37 +273,25 @@ function get_vertex_data() {
 
 function ui_commit_vertices() {
 	let vertices = ui_vertices;
-	let indices = [];
+	let i0 = vertices_main.length;
 	vertices.forEach(function (v) {
-		let exists = true;
-		let i;
-		for (i = 0; i < vertices_main.length; i++) {
-			if (vertices_main[i].id === v.id) {
-				break;
-			}
-		}
-		if (i === vertices_main.length) {
-			vertices_main.push(v);
-		}
-		indices.push(i);
+		vertices_main.push(v);
 	});
 	switch (ui_tool) {
 	case TOOL_TRIANGLE:
-		indices_main.push(indices[0], indices[1], indices[2]);
+		indices_main.push(i0, i0 + 1, i0 + 2);
 		break;
 	case TOOL_PARALLELOGRAM: {
-		indices.push(vertices_main.length);
-		let v0 = vertices_main[indices[0]];
-		let v1 = vertices_main[indices[1]];
-		let v2 = vertices_main[indices[2]];
+		let v0 = vertices_main[i0];
+		let v1 = vertices_main[i0 + 1];
+		let v2 = vertices_main[i0 + 2];
 		let v3 = Object.assign({}, v1);
 		v3.x = v0.x + v2.x - v1.x;
-		v3.y = v0.x + v2.y - v1.y;
+		v3.y = v0.y + v2.y - v1.y;
 		v3.uv.x = v0.uv.x + v2.uv.x - v1.uv.x;
-		v3.uv.y = v0.uv.x + v2.uv.y - v1.uv.y;
+		v3.uv.y = v0.uv.y + v2.uv.y - v1.uv.y;
 		vertices_main.push(v3);
-		indices_main.push(indices[0], indices[1], indices[2],
-			indices[0], indices[2], indices[3]);
+		indices_main.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
 		} break;
 	}
 	vertices_changed = true;
@@ -316,7 +313,6 @@ function on_click(e) {
 	if (ui_is_editing_shape()) {
 		let pos = snapped_mouse_pos();
 		let vertex = {
-			id: ++vertex_id,
 			x: pos.x,
 			y: pos.y,
 			color: rgba_hex_to_float(ui_get_color_rgba()),
