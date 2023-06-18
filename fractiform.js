@@ -2,6 +2,7 @@
 
 /*
 TODO:
+- draw lines btwn vertex positions and uvs
 - synthlike interface? (change name to fraxynth?)
 - grid
 */
@@ -46,7 +47,7 @@ let ui_tool;
 
 const vertex_radius = 10;
 // radius for snapping to vertices, selecting vertices
-const vertex_mouse_radius = 10;
+const vertex_mouse_radius = 20;
 
 let width = 1920, height = 1920;
 
@@ -323,6 +324,7 @@ function on_click(e) {
 					let v1 = vertices[1];
 					let v2 = vertices[2];
 					let v3 = vertices[3];
+					v0.first_in_quad = true;
 					v3.uv = Object.preventExtensions({
 						x: v0.uv.x + v2.uv.x - v1.uv.x,
 						y: v0.uv.y + v2.uv.y - v1.uv.y,
@@ -524,11 +526,16 @@ function frame(time) {
 			const line_options = {
 				strokeStyle: '#ffffff'
 			};
-			let v0 = vertices_main[indices_main[3*i]];
-			let v1 = vertices_main[indices_main[3*i+1]];
-			let v2 = vertices_main[indices_main[3*i+2]];
-			ui_line(v0, v1, line_options);
-			ui_line(v0, v2, line_options);
+			let i0 = indices_main[3*i];
+			let i1 = indices_main[3*i+1];
+			let i2 = indices_main[3*i+2];
+			let v0 = vertices_main[i0];
+			let v1 = vertices_main[i1];
+			let v2 = vertices_main[i2];
+			if (!('first_in_quad' in v0 && i1 == i0 + 2))
+				ui_line(v0, v1, line_options);
+			if (!('first_in_quad' in v0 && i2 == i0 + 2))
+				ui_line(v0, v2, line_options);
 			ui_line(v1, v2, line_options);
 		}
 		
