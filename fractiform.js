@@ -32,6 +32,7 @@ let ui_vertices = [];
 let ui_vertex_properties_div;
 let ui_color_input;
 let ui_color_mix_input;
+let ui_grid_divisions_x_input, ui_grid_divisions_y_input;
 let ui_div;
 let vertex_id = 0;
 let snapping = true;
@@ -189,21 +190,30 @@ function distance(p0, p1) {
 
 function snapped_pos(p) {
 	let px = ndc_to_px(p);
-	let closest_vertex = null;
+	let closest_pos = null;
 	let closest_dist = Infinity;
-	function consider_vertex(v) {
+	function consider_pos(v) {
 		let dist = distance(ndc_to_px(v), px);
 		if (dist < closest_dist) {
 			closest_dist = dist;
-			closest_vertex = v;
+			closest_pos = v;
 		}
 	}
-	vertices_main.forEach(consider_vertex);
-	ui_vertices.forEach(consider_vertex);
+	vertices_main.forEach(consider_pos);
+	ui_vertices.forEach(consider_pos);
+	const g = ui_grid_divisions();
+	for (let y = 0; y <= g.y; ++y) {
+		for (let x = 0; x <= g.x; ++x) {
+			consider_pos({
+				x: x / g.x * 2 - 1,
+				y: y / g.y * 2 - 1,
+			});
+		}
+	}
 	if (closest_dist < vertex_mouse_radius) {
 		return Object.preventExtensions({
-			x: closest_vertex.x,
-			y: closest_vertex.y,
+			x: closest_pos.x,
+			y: closest_pos.y,
 		});
 	}
 	return Object.preventExtensions({x: p.x, y: p.y});
@@ -324,6 +334,8 @@ function startup() {
 	ui_color_input = document.getElementById('color-input');
 	ui_color_mix_input = document.getElementById('color-mix-input');
 	ui_vertex_properties_div = document.getElementById('vertex-properties');
+	ui_grid_divisions_x_input = document.getElementById('grid-divisions-x-input');
+	ui_grid_divisions_y_input = document.getElementById('grid-divisions-y-input');
 	ui_ctx = ui_canvas.getContext('2d');
 	
 	gl = canvas.getContext('webgl');
@@ -535,7 +547,32 @@ function frame(time) {
 			
 		}
 		
+		{ // draw grid
+			const g = ui_grid_divisions();
+			const options = {
+				strokeStyle: '#ffffff66',
+			};
+			for (let y = 1; y < g.y; ++y) {
+				let v = y / g.y * 2 - 1;
+				ui_line({x: -1, y: v}, {x: 1, y: v}, options);
+			}
+			
+			for (let x = 1; x < g.x; ++x) {
+				let v = x / g.x * 2 - 1;
+				ui_line({x: v, y: -1}, {x: v, y: 1}, options);
+			}
+		}
+		
 	}
+}
+
+function ui_grid_divisions() {
+	let x = parseInt(ui_grid_divisions_x_input.value);
+	let y = parseInt(ui_grid_divisions_y_input.value);
+	if (isNaN(x) || isNaN(y) || x <= 0 || y <= 0 || x >= 100 || y >= 100) {
+		return null;
+	}
+	return Object.preventExtensions({x: x, y: y});
 }
 
 function ui_circle(pos, r, options) {
