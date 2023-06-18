@@ -250,18 +250,14 @@ function on_click(e) {
 				ui_vertices = ui_shape;
 				ui_shape = [];
 				let all_full_alpha = true;
-				for (let i in ui_vertices) {
-					console.log(ui_vertices[i].color.a );
-					if (ui_vertices[i].color.a < 1) {
+				ui_vertices.forEach(function (v) {
+					if (v.color.a < 1) {
 						all_full_alpha = false;
-						break;
 					}
-				}
+				});
 				if (all_full_alpha) {
 					// skip UV specification; it doesn't matter
-					for (let i in ui_vertices) {
-						ui_vertices[i].uv = {x: 0, y: 0};
-					}
+					ui_vertices.forEach(function (v) { v.uv = {x: 0, y: 0}; } );
 					ui_commit_vertices();
 					ui_set_tool(TOOL_SELECT);
 				}
@@ -271,7 +267,7 @@ function on_click(e) {
 			if (ui_shape.length === ui_vertices.length) {
 				let uv = ui_shape;
 				let vertices = ui_vertices;
-				for (let i in vertices) {
+				for (let i = 0; i < vertices.length; i++) {
 					vertices[i].uv = {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5};
 				}
 				ui_commit_vertices();
@@ -332,10 +328,10 @@ function startup() {
 	window.addEventListener('keydown', on_key_press);
 	window.addEventListener('mousemove', on_mouse_move);
 	window.addEventListener('click', on_click);
-	{ // set up tool buttons
-		let tool_buttons = document.getElementsByClassName('tool-button');
-		for (let i = 0; i < tool_buttons.length; i++) {
-			let tool_button = tool_buttons[i];
+	// set up tool buttons
+	Array.prototype.forEach.call(
+		document.getElementsByClassName('tool-button'),
+		function (tool_button) {
 			tool_button.addEventListener('click', function(e) {
 				let button = e.target;
 				while (button !== null && button.tagName !== 'BUTTON') {
@@ -347,7 +343,7 @@ function startup() {
 				ui_set_tool(n);
 			});
 		}
-	}
+	);
 }
 
 function ui_is_editing_shape() {
@@ -427,6 +423,23 @@ function frame(time) {
 	ui_ctx.clearRect(0, 0, width, height);
 	
 	if (ui_shown) {
+		for (let i = 0; i < vertices_main.length; i++) {
+			let vertex = vertices_main[i];
+			ui_circle(vertex, vertex_radius, {
+				strokeStyle: '#ffffff',
+				fillStyle: rgba_float_to_hex(vertex.color),
+			});
+			if (i % 3 === 0) {
+				console.assert(i + 2 < vertices_main.length, 'vertices_main.length not a multiple of 3');
+				const line_options = {
+					strokeStyle: '#ffffff'
+				};
+				ui_line(vertex, vertices_main[i+1], line_options);
+				ui_line(vertex, vertices_main[i+2], line_options);
+				ui_line(vertices_main[i+1], vertices_main[i+2], line_options);
+			}
+		}
+		
 		if (ui_tool === TOOL_UV) {
 			ui_polygon(ui_vertices, {
 				strokeStyle: '#ffffff',
@@ -461,7 +474,7 @@ function frame(time) {
 				}
 			}
 			
-			for (let i in ui_shape) {
+			for (let i = 0; i < ui_shape.length; i++) {
 				let vertex = ui_shape[i];
 				
 				if (i > 0 && ui_shape.length < 3) {
@@ -510,8 +523,7 @@ function ui_polygon(vertices, options) {
 	ui_ctx.lineWidth = 'lineWidth' in options ? options.lineWidth : 2;
 	const v0 = ndc_to_px(vertices[0]);
 	ui_ctx.moveTo(v0.x, v0.y);
-	for (let i in vertices) {
-		if (i == 0) continue;
+	for (let i = 1; i < vertices.length; i++) {
 		const v = ndc_to_px(vertices[i]);
 		ui_ctx.lineTo(v.x, v.y);
 	}
@@ -556,7 +568,7 @@ function perform_step() {
 	
 function compile_program(name, shaders) {
 	let program = gl.createProgram();
-	for (let i in shaders) {
+	for (let i = 0; i < shaders.length; i++) {
 		let shader_element = document.getElementById(shaders[i]);
 		let source = shader_element.firstChild.nodeValue;
 		let type = shader_element.getAttribute('type');
