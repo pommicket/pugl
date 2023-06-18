@@ -281,18 +281,9 @@ function ui_commit_vertices() {
 	case TOOL_TRIANGLE:
 		indices_main.push(i0, i0 + 1, i0 + 2);
 		break;
-	case TOOL_PARALLELOGRAM: {
-		let v0 = vertices_main[i0];
-		let v1 = vertices_main[i0 + 1];
-		let v2 = vertices_main[i0 + 2];
-		let v3 = Object.assign({}, v1);
-		v3.x = v0.x + v2.x - v1.x;
-		v3.y = v0.y + v2.y - v1.y;
-		v3.uv.x = v0.uv.x + v2.uv.x - v1.uv.x;
-		v3.uv.y = v0.uv.y + v2.uv.y - v1.uv.y;
-		vertices_main.push(v3);
+	case TOOL_PARALLELOGRAM:
 		indices_main.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
-		} break;
+		break;
 	}
 	vertices_changed = true;
 	
@@ -321,17 +312,38 @@ function on_click(e) {
 		switch (ui_tool) {
 		case TOOL_TRIANGLE:
 		case TOOL_PARALLELOGRAM:
-			if (ui_specify_uv && ui_shape.length == ui_vertices.length) {
+			if (ui_specify_uv && ui_shape.length === 3) {
 				let uv = ui_shape;
 				let vertices = ui_vertices;
-				for (let i = 0; i < vertices.length; i++) {
+				for (let i = 0; i < uv.length; i++) {
 					vertices[i].uv = {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5};
+				}
+				if (ui_tool === TOOL_PARALLELOGRAM) {
+					let v0 = vertices[0];
+					let v1 = vertices[1];
+					let v2 = vertices[2];
+					let v3 = vertices[3];
+					v3.uv = Object.preventExtensions({
+						x: v0.uv.x + v2.uv.x - v1.uv.x,
+						y: v0.uv.y + v2.uv.y - v1.uv.y,
+					});
 				}
 				ui_commit_vertices();
 				ui_set_tool(TOOL_SELECT);
 			} else if (ui_shape.length === 3) {
 				ui_specify_uv = true;
 				ui_vertices = ui_shape;
+				if (ui_tool === TOOL_PARALLELOGRAM) {
+					let v0 = ui_vertices[0];
+					let v1 = ui_vertices[1];
+					let v2 = ui_vertices[2];
+					let v3 = {
+						color: v1.color,
+						x: v0.x + v2.x - v1.x,
+						y: v0.y + v2.y - v1.y
+					};
+					ui_vertices.push(v3);
+				}
 				ui_shape = [];
 				let all_full_alpha = true;
 				ui_vertices.forEach(function (v) {
