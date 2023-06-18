@@ -37,10 +37,11 @@ let ui_div;
 let vertex_id = 0;
 let shift_key = false;
 let ctrl_key = false;
+let ui_specify_uv = false;
 
 const TOOL_TRIANGLE = 1;
-const TOOL_UV = 2;
 const TOOL_SELECT = 3;
+const TOOL_PARALLELOGRAM = 4;
 
 let ui_tool;
 
@@ -104,6 +105,7 @@ function ui_escape_tool() {
 	ui_vertices = [];
 	ui_shape = [];
 	ui_tool = TOOL_SELECT;
+	ui_specify_uv = false;
 }
 
 function ui_set_tool(tool) {
@@ -148,6 +150,9 @@ function on_key_press(e) {
 		break;
 	case 50: // 2
 		ui_set_tool(TOOL_TRIANGLE);
+		break;
+	case 51: // 3
+		ui_set_tool(TOOL_PARALLELOGRAM);
 		break;
 	}
 }
@@ -273,10 +278,24 @@ function ui_commit_vertices() {
 		}
 		indices.push(i);
 	});
-	if (indices.length === 3) {
+	switch (ui_tool) {
+	case TOOL_TRIANGLE:
 		indices_main.push(indices[0], indices[1], indices[2]);
-	} else {
-		console.error('bad shape length');
+		break;
+	case TOOL_PARALLELOGRAM: {
+		indices.push(vertices_main.length);
+		let v0 = vertices_main[indices[0]];
+		let v1 = vertices_main[indices[1]];
+		let v2 = vertices_main[indices[2]];
+		let v3 = Object.assign({}, v1);
+		v3.x = v0.x + v2.x - v1.x;
+		v3.y = v0.x + v2.y - v1.y;
+		v3.uv.x = v0.uv.x + v2.uv.x - v1.uv.x;
+		v3.uv.y = v0.uv.x + v2.uv.y - v1.uv.y;
+		vertices_main.push(v3);
+		indices_main.push(indices[0], indices[1], indices[2],
+			indices[0], indices[2], indices[3]);
+		} break;
 	}
 	vertices_changed = true;
 	
@@ -305,8 +324,17 @@ function on_click(e) {
 		ui_shape.push(vertex);
 		switch (ui_tool) {
 		case TOOL_TRIANGLE:
-			if (ui_shape.length === 3) {
-				ui_tool = TOOL_UV;
+		case TOOL_PARALLELOGRAM:
+			if (ui_specify_uv && ui_shape.length == ui_vertices.length) {
+				let uv = ui_shape;
+				let vertices = ui_vertices;
+				for (let i = 0; i < vertices.length; i++) {
+					vertices[i].uv = {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5};
+				}
+				ui_commit_vertices();
+				ui_set_tool(TOOL_SELECT);
+			} else if (ui_shape.length === 3) {
+				ui_specify_uv = true;
 				ui_vertices = ui_shape;
 				ui_shape = [];
 				let all_full_alpha = true;
@@ -321,17 +349,6 @@ function on_click(e) {
 					ui_commit_vertices();
 					ui_set_tool(TOOL_SELECT);
 				}
-			}
-			break;
-		case TOOL_UV:
-			if (ui_shape.length === ui_vertices.length) {
-				let uv = ui_shape;
-				let vertices = ui_vertices;
-				for (let i = 0; i < vertices.length; i++) {
-					vertices[i].uv = {x: uv[i].x * 0.5 + 0.5, y: uv[i].y * 0.5 + 0.5};
-				}
-				ui_commit_vertices();
-				ui_set_tool(TOOL_SELECT);
 			}
 			break;
 		}
@@ -410,11 +427,11 @@ function startup() {
 }
 
 function ui_is_editing_shape() {
-	return ui_tool === TOOL_TRIANGLE || ui_tool === TOOL_UV;
+	return ui_tool === TOOL_TRIANGLE || ui_tool === TOOL_PARALLELOGRAM;
 }
 
 function ui_is_editing_vertex() {
-	return ui_tool === TOOL_TRIANGLE;
+	return ui_tool === TOOL_TRIANGLE || ui_tool === TOOL_PARALLELOGRAM;
 }
 
 function draw_vertex(vertex) {
@@ -493,21 +510,21 @@ function frame(time) {
 	ui_ctx.clearRect(0, 0, width, height);
 	
 	if (ui_shown) {
-		for (let i = 0; i < vertices_main.length; i++) {
-			let vertex = vertices_main[i];
-			draw_vertex(vertex);
-			if (i % 3 === 0) {
-				console.assert(i + 2 < vertices_main.length, 'vertices_main.length not a multiple of 3');
-				const line_options = {
-					strokeStyle: '#ffffff'
-				};
-				ui_line(vertex, vertices_main[i+1], line_options);
-				ui_line(vertex, vertices_main[i+2], line_options);
-				ui_line(vertices_main[i+1], vertices_main[i+2], line_options);
-			}
+		vertices_main.forEach(draw_vertex);
+		
+		for (let i = 0; i < indices_main.length / 3; i++) {
+			const line_options = {
+				strokeStyle: '#ffffff'
+			};
+			let v0 = vertices_main[indices_main[3*i]];
+			let v1 = vertices_main[indices_main[3*i+1]];
+			let v2 = vertices_main[indices_main[3*i+2]];
+			ui_line(v0, v1, line_options);
+			ui_line(v0, v2, line_options);
+			ui_line(v1, v2, line_options);
 		}
 		
-		if (ui_tool === TOOL_UV) {
+		if (ui_specify_uv) {
 			ui_polygon(ui_vertices, {
 				strokeStyle: '#ffffff',
 				fillStyle: '#ffffff44',
@@ -517,7 +534,7 @@ function frame(time) {
 		
 		if (ui_is_editing_shape()) {
 			let color;
-			if (ui_tool == TOOL_UV) {
+			if (ui_specify_uv) {
 				color = '#3333ff';
 			} else {
 				color = '#ffffff';
@@ -533,14 +550,28 @@ function frame(time) {
 				// vertex where the mouse is
 				ui_circle(mpos, vertex_radius, {
 					strokeStyle: options_shape.strokeStyle,
-					fillStyle: ui_tool === TOOL_UV ? color + '44' : ui_get_color_rgba(),
+					fillStyle: ui_specify_uv ? color + '44' : ui_get_color_rgba(),
 				});
 				
 				if (ui_shape.length === 1) {
 					ui_line(ui_shape[0], mpos, options_shape);
 				} else if (ui_shape.length === 2) {
-					// triangle preview
-					ui_polygon([ui_shape[0], ui_shape[1], mpos], options_shape);
+					if (ui_tool === TOOL_TRIANGLE) {
+						// triangle preview
+						ui_polygon([ui_shape[0], ui_shape[1], mpos], options_shape);
+					} else if (ui_tool === TOOL_PARALLELOGRAM) {
+						// parallelogram preview
+						let v0 = ui_shape[0];
+						let v1 = ui_shape[1];
+						let v2 = mpos;
+						let v3 = {
+							x: v0.x + v2.x - v1.x,
+							y: v0.y + v2.y - v1.y,
+						};
+						ui_polygon([v0, v1, v2, v3], options_shape);
+					} else {
+						console.assert(false, 'bad tool');
+					}
 				}
 			}
 			
@@ -554,7 +585,7 @@ function frame(time) {
 				
 				ui_circle(vertex, vertex_radius, {
 					strokeStyle: options_shape.strokeStyle,
-					fillStyle: ui_tool === TOOL_UV ? color + '44' : rgba_float_to_hex(vertex.color),
+					fillStyle: ui_specify_uv ? color + '44' : rgba_float_to_hex(vertex.color),
 				});
 			}
 			
