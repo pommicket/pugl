@@ -35,7 +35,8 @@ let ui_color_mix_input;
 let ui_grid_divisions_x_input, ui_grid_divisions_y_input;
 let ui_div;
 let vertex_id = 0;
-let snapping = true;
+let shift_key = false;
+let ctrl_key = false;
 
 const TOOL_TRIANGLE = 1;
 const TOOL_UV = 2;
@@ -118,7 +119,13 @@ function ui_set_tool(tool) {
 	}
 }
 
+function update_key_modifiers_from_event(e) {
+	shift_key = e.shiftKey;
+	ctrl_key = e.ctrlKey;
+}
+
 function on_key_press(e) {
+	update_key_modifiers_from_event(e);
 	let code = e.keyCode;
 	if (e.target.tagName === 'INPUT') {
 		return;
@@ -145,6 +152,9 @@ function on_key_press(e) {
 	}
 }
 
+function on_key_release(e) {
+	update_key_modifiers_from_event(e);
+}
 
 function ndc_to_px(pos) {
 	let point = {
@@ -175,6 +185,7 @@ function get_mouse_pos_from_event(e) {
 }
 
 function on_mouse_move(e) {
+	update_key_modifiers_from_event(e);
 	get_mouse_pos_from_event(e);
 }
 
@@ -220,7 +231,7 @@ function snapped_pos(p) {
 }
 
 function snapped_mouse_pos() {
-	return snapping ? snapped_pos(mouse_pos) : mouse_pos;
+	return ctrl_key ? mouse_pos : snapped_pos(mouse_pos);
 }
 
 function lerp(a, b, x) {
@@ -275,6 +286,7 @@ function ui_commit_vertices() {
 
 function on_click(e) {
 	get_mouse_pos_from_event(e);
+	update_key_modifiers_from_event(e);
 	if (!is_mouse_in_canvas()) {
 		return;
 	}
@@ -376,6 +388,7 @@ function startup() {
 	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
+	window.addEventListener('keyup', on_key_release);
 	window.addEventListener('mousemove', on_mouse_move);
 	window.addEventListener('click', on_click);
 	// set up tool buttons
