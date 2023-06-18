@@ -21,6 +21,7 @@ let framebuffer_color_texture;
 let sampler_texture;
 let current_time;
 let vertices_main = [];
+let indices_main = [];
 let vertices_changed = false;
 let ui_shown = true;
 let mouse_pos = {x: -1e10, y: -1e10};
@@ -32,6 +33,7 @@ let ui_vertex_properties_div;
 let ui_color_input;
 let ui_color_mix_input;
 let ui_div;
+let vertex_id = 0;
 
 const TOOL_TRIANGLE = 1;
 const TOOL_UV = 2;
@@ -180,49 +182,48 @@ function lerp(a, b, x) {
 	return a + (b - a) * x;
 }
 
-function vertices_push_triangle(v0, v1, v2) {
-	Object.preventExtensions(v0);
-	Object.preventExtensions(v1);
-	Object.preventExtensions(v2);
-	vertices_main.push(v0);
-	vertices_main.push(v1);
-	vertices_main.push(v2);
-	vertices_changed = true;
-}
-
-function vertices_push_quad(v0, v1, v2, v3) {
-	vertices_push_triangle(v0, v1, v2);
-	vertices_push_triangle(v0, v2, v3);
-}
-
 const VERTEX_POS = 0;
 const VERTEX_UV = 8;
 const VERTEX_COLOR = 16;
 const VERTEX_SIZE = 32;
 
-function vertices_to_uint8_array(vertices) {
-	let array = new Uint8Array(vertices.length * VERTEX_SIZE);
-	for (var i = 0; i < vertices.length; i++) {
-		let vertex = vertices[i];
+function get_vertex_data() {
+	let array = new Uint8Array(indices_main.length * VERTEX_SIZE);
+	indices_main.forEach(function (i) {
+		let vertex = vertices_main[i];
 		array.set(new Uint8Array((new Float32Array([vertex.x, vertex.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_POS);
 		array.set(new Uint8Array((new Float32Array([vertex.uv.x, vertex.uv.y])).buffer),
 			VERTEX_SIZE * i + VERTEX_UV);
 		array.set(new Uint8Array((new Float32Array([vertex.color.r, vertex.color.g, vertex.color.b, vertex.color.a])).buffer),
 			VERTEX_SIZE * i + VERTEX_COLOR);
-	}
+	});
 	return array;
 }
 
 function ui_commit_vertices() {
 	let vertices = ui_vertices;
-	if (vertices.length === 3) {
-		vertices_push_triangle(vertices[0], vertices[1], vertices[2]);
-	} else if (vertices.length === 4) {
-		vertices_push_quad(vertices[0], vertices[1], vertices[2], vertices[3]);
+	let indices = [];
+	vertices.forEach(function (v) {
+		let exists = true;
+		let i;
+		for (i = 0; i < vertices_main.length; i++) {
+			if (vertices_main[i].id === v.id) {
+				break;
+			}
+		}
+		if (i === vertices_main.length) {
+			vertices_main.push(v);
+		}
+		indices.push(i);
+	});
+	if (indices.length === 3) {
+		indices_main.push(indices[0], indices[1], indices[2]);
 	} else {
 		console.error('bad shape length');
 	}
+	vertices_changed = true;
+	
 	ui_shape = [];
 	ui_vertices = [];
 }
@@ -238,6 +239,7 @@ function on_click(e) {
 	
 	if (ui_is_editing_shape()) {
 		let vertex = {
+			id: ++vertex_id,
 			x: mouse_pos.x,
 			y: mouse_pos.y,
 			color: rgba_hex_to_float(ui_get_color_rgba()),
@@ -386,7 +388,7 @@ function frame(time) {
 	ui_canvas.style.top = canvas_y + 'px';
 	
 	if (vertices_changed) {
-		let vertex_data = vertices_to_uint8_array(vertices_main);
+		let vertex_data = get_vertex_data();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 		gl.bufferData(gl.ARRAY_BUFFER, vertex_data, gl.DYNAMIC_DRAW);
 		vertices_changed = false;
@@ -551,16 +553,18 @@ function perform_step() {
 	gl.uniform1i(gl.getUniformLocation(program_main, 'u_sampler_texture'), 0);
 	
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
-	let v_pos = gl.getAttribLocation(program_main, 'v_pos');
-	let v_uv = gl.getAttribLocation(program_main, 'v_uv');
-	let v_color = gl.getAttribLocation(program_main, 'v_color');
-	gl.enableVertexAttribArray(v_pos);
-	gl.enableVertexAttribArray(v_uv);
-	gl.enableVertexAttribArray(v_color);
-	gl.vertexAttribPointer(v_pos,    2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_POS);
-	gl.vertexAttribPointer(v_uv,     2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_UV);
-	gl.vertexAttribPointer(v_color,  4, gl.FLOAT, false, VERTEX_SIZE, VERTEX_COLOR);
-	gl.drawArrays(gl.TRIANGLES, 0, vertices_main.length);
+	if (indices_main.length >= 0) {
+		let v_pos = gl.getAttribLocation(program_main, 'v_pos');
+		let v_uv = gl.getAttribLocation(program_main, 'v_uv');
+		let v_color = gl.getAttribLocation(program_main, 'v_color');
+		gl.enableVertexAttribArray(v_pos);
+		gl.enableVertexAttribArray(v_uv);
+		gl.enableVertexAttribArray(v_color);
+		gl.vertexAttribPointer(v_pos,    2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_POS);
+		gl.vertexAttribPointer(v_uv,     2, gl.FLOAT, false, VERTEX_SIZE, VERTEX_UV);
+		gl.vertexAttribPointer(v_color,  4, gl.FLOAT, false, VERTEX_SIZE, VERTEX_COLOR);
+		gl.drawArrays(gl.TRIANGLES, 0, indices_main.length);
+	}
 	
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, width, height, 0);
