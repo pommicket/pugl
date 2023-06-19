@@ -117,13 +117,9 @@
 	<meta content="width=device-width,initial-scale=1" name="viewport">
 	<script id="main-vertex-shader" type="x-shader/x-vertex">
 attribute vec2 v_pos;
-attribute vec2 v_uv;
-attribute vec4 v_color;
 varying vec2 uv;
-varying vec4 color;
 void main() {
-	uv = v_uv;
-	color = v_color;
+	uv = v_pos * 0.5 + 0.5;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 	</script>
@@ -133,11 +129,22 @@ precision highp float;
 #endif
 
 uniform sampler2D u_texture;
-varying vec4 color;
+uniform float u_time;
 varying vec2 uv;
 
 void main() {
-	gl_FragColor = mix(texture2D(u_texture, uv), vec4(color.xyz, 1.0), color.w);
+	vec2 u = pow(uv,vec2(1.2 + 0.4 * sin(u_time)));
+	vec2 k =floor(3.0 * u); 
+	int i = int(k.y * 3.0 + k.x);
+	if (i == 4) discard;
+	vec3 sample = texture2D(u_texture, mod(3.0*u, 1.0)).xyz;
+	float h = mod(float(i) * 5.0, 8.0) / 8.0;
+	sample = vec3(
+		mix(sample.x, sample.z, h),
+		mix(sample.y, sample.x, h),
+		mix(sample.z, sample.y, h)
+	);
+	gl_FragColor = vec4(mix(sample, vec3(1.0,0.0,0.0), 0.2),1.0);
 }
 	</script>
 	
@@ -176,36 +183,9 @@ void main() {
 			Try upgrading to the latest version of Microsoft Internet Explorer&reg;.
 		</p>
 	</canvas>
-	<canvas id="ui-canvas"></canvas>
 </div>
 <div id="ui">
-	<div id="vertex-properties">
-		<!--
-		<input type="text" value="1.0" name="red-input" id="red-input">
-		<label for="red-input">R</label>
-		<input type="text" value="1.0" name="green-input" id="green-input">
-		<label for="green-input">G</label>
-		<input type="text" value="1.0" name="blue-input" id="blue-input">
-		<label for="blue-input">B</label>
-		-->
-		<input type="color" value="#ff00aa" name="color-input" id="color-input" aria-label="Color">
-		<input type="text" value="0.2" name="color-mix-input" id="color-mix-input">
-		<label for="color-mix-input">opacity</label>
-	</div>
-	<div style="float:right;margin-right:0.2em;">
-		<input type="number" value="8" id="grid-divisions-x-input">
-		<input type="number" value="8" id="grid-divisions-y-input">
-		<label for="grid-divisions-y-input">grid</label>
-		<button class="tool-button" data-tool="3" title="select tool (1)">
-			<img alt="select" class="icon" src="data:image/png;base64,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">
-		</button>
-		<button class="tool-button" data-tool="1" title="triangle tool (2)">
-			<img alt="triangle" class="icon" src="data:image/png;base64,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">
-		</button>
-		<button class="tool-button" data-tool="4" title="parallelogram tool (3)">
-			<img alt="parallelogram" class="icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAQAAAAkGDomAAAE60lEQVRo3u2ay28bVRSHv7Gd5kHTlqZB1EUKooi3UCsERChqQEgsWNAqLFiyy97wB0RZ0GXCthVrpC5aVIkFIJBaNQIlKapYNIJFKopIQKR5Omrc2p4fi0zmYc/YM54Zu5VyZpe5c+bLnXt+95x7DPv2WJpGNaU5bWrXNjWnKY1GdeJ7JQA3osvyt8saiQWXBKTGtaRgW9J4bLw4iBrXPTW2e00RFepKCa85okJfLay92o97TQW9qYKu1X3okdh40RFrQuOGxlz3xnTDGy6NAX1FIB6gRj0AF5SvuZ/XBc+I0SC8hiLQOqKmPLOX9xmR98zilD9gUxFoGXDO5WcsYMyYa8xcyyLQIuCmExoNRjnhshlDBMIDKqse9WtQx10eCg3GF5xhu3/JOSLABAOe0de5ygwjnMW9YAeYYIGZICC66KKHHDl6OcIxhniOEx7PPzf4j+r82oAUyHsGThtXAJhnWmMUcJQpT8FxpCw99JEjSy8HeZohTnKCAY4yQD8HyJEjg+Hy/S6zgYB1+mfsiQDulXGRSWPZG2FM4Nb3c8xZczTEq5xkkCc5Qj+9HLCAvFBu+8V4J3gN2l9ryzjcQATUTAT+0Pea1x2tqKiSyqqoKlNhLXoUe0XAPwD0sWuMqUpoIFNVVVSNpYNuEQiKUWV0MwJQWSUVtaq/9btm9Z1+aG0n2QuSQ/bIq27h9iyjLHO8EbBDmgiTCg/ZocgG66ywyG3+YosyJapU+IqP7CfGeUV7YQjUhCFcMa57g8SZrreY94kiQBnO4WziJiZVypQossoaqyyxyF3+ZZsdqlS4T8mourMZLpEPIWSwzCfGTK3MOIE+750cF9ILrhs/8h+L3OYuG+xQoUKJMmU3Uo1gzGiS8x5FHMUvJVhl0phpsBE1SLCcjaio4xrUE8q2KaP2i+K6q9lWnmZNUq+DdVfzZCjNqq4+nazDa55ORq+Li7a/ki7p/YgJuefjhkvIo2K+pn8sj6t6T5n0S5qogKe0Zvnc0HB7isKogOuW13WdbldZ3SrgqfYdTIQHPB0ZMKGjnbDvGtaG5XstNKAtAjdVsh5+qN80HVdYfOuVD7VlvWNFr0d9/Fn9qqokU3d0Rl0pnBF261NtW4DLetl/VLD2HCRPBjA4TJZqCqeYGQ7Z7y8HlYjBgDm67TxwxzBTADTo8hxqRAR0UkHxIKWTYCPMNIc7cO2YZeL8d7Hnr9d6izCjA3a7PnE6luWY/f5SUBhmAo8wjtr3qpipAHbzlPUOUaQUbQZzDLokoJzSDPbbX2k7aBJycTSq9XSVs4zwEv32ahzibb6J4qJPn+m+pfJ/6sUE4ZLZ69Wnz9MATCxbSgewlXwzE0ejouLVlO1+NsD5cM2wQ/pSD6yjoAU9n8jaS7Lm0aC+VlmSVNWsnkkAMIk2jitdvWXh7TZyLiZQB8dv46SZ8CfSxkmzZGpjG6dFwHa2cSKVRTHbOPZe7NvG+ZZbDPMBZzw6NaEFo21tHCdZCGrj/MQXnWzjWHnzY9fGaSoCnW3jBDz+qLRxAqe/I22cvSDxbePUJegdaOPsBYmrjWPMB81gJ9o49TVJTRvHFe6mHo02TqiNqLNtnBa38jRrkoSSofSqusTSySgnuNF+3phgQp6OdaKNk3zNmnifhDaJQFsR29jG6eTRTsqQSfzGed/2bd/aZf8DSKJozbS2TtQAAAAASUVORK5CYII=">
-		</button>
-	</div>
+	a
 </div>
 
 <dialog id="error-dialog">
