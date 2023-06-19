@@ -21,21 +21,14 @@
 	
 	#page {
 		width: 100vw;
+		height: 100vh;
 		position: relative;
 	}
-	#page[data-ui-shown="1"] {
-		top: var(--ui-height);
-		height: calc(100vh - var(--ui-height));
-	}
-	#page[data-ui-shown="0"] {
-		top: 0;
-		height: 100vh;
-	}
 	
-	#canvas, #ui-canvas {
+	#canvas {
 		position: absolute;
 		left: 0;
-		top: 0;
+		bottom: 0;
 	}
 	
 	#ui-canvas {
@@ -68,32 +61,39 @@
 		outline: 2px solid #0a0;
 	}
 	#ui {
-		display: block;
-		width: 100vw;
-		height: var(--ui-height);
-		background-color: #111;
-		border-bottom: 2px solid var(--ui-border);
 		position: absolute;
 		top: 0;
 		left: 0;
-		vertical-align:middle;
+		width: 20vw;
+		height: 100vh;
+		resize: horizontal;
+		overflow: scroll;
+		border-right: 2px solid white;
+		padding: 0.2em;
 	}
 	input, button {
 		vertical-align: middle;
 		display: inline-block;
-		height: 2.0em;
 		margin: 0.3em 0 0.3em 0.3em;
 		border: 2px solid var(--ui-border);
-		background-color: black;
+		background-color: transparent;
 		color: white;
+	}
+	button {
+		height: 2.0em;
+	}
+	input {
+		height: 1.5em;
+		font-size: inherit;
 	}
 	#ui input[type=color] {
 		padding: 0;
 	}
-	#ui input[type=text], #ui input[type=number] {
-		width: 3em;
-		font-size: inherit;
-		height: 1.5em;
+	.in input {
+		width: 5em;
+	}
+	.out {
+		font-weight: bold;
 	}
 	input[type=number] {
 		/* disable increment/decrement buttons (firefox) */
@@ -103,14 +103,26 @@
 		/* disable increment/decrement buttons (webkit) */
 		-webkit-appearance: none;
 	}
-	#ui label {
-		margin-right: 0.5em;
-	}
-	#ui div {
-		display: inline-block;
-	}
 	img.icon {
 		height: 1.5em;
+	}
+	.widget {
+		border: 2px solid white;
+		border-radius: 5px;
+		padding: 5px;
+		margin: 0.5em;
+		background: #111;
+		position: relative;
+	}
+	.outs {
+		position: absolute;
+		bottom: 0.2em;
+		right: 0.2em;
+	}
+	.widget-title {
+		font-weight: bold;
+		margin: 2px;
+		display: block;
 	}
 	</style>
 	<meta charset="utf-8">
@@ -170,22 +182,43 @@ void main() {
 
 <body>
 <script src="fractiform.js" type="text/javascript"></script>
-<div id="page" data-ui-shown="1">
+<div id="page">
 	<noscript>
 		<p>
 			This page requires JavaScript to function.<br>
 			Try using a modern browser such as <em>Netscape Navigator</em>&reg;.
 		</p>
 	</noscript>
+	<div id="ui">
+		<div class="widget" data-func="mix">
+			<div class="widget-title">Mix <input placeholder="name" class="name" type="text"></div>
+			<div class="in"><input type="text" id="src1"> <label for="src1">src1</label></div>
+			<div class="in"><input type="text" id="src2"> <label for="src2">src2</label></div>
+			<div class="in"><input type="text" id="mix"> <label for="mix">mix</label></div>
+			<div class="outs">
+				<div class="out">out</div>
+			</div>
+		</div>
+		<div class="widget" data-func="mix">
+			<div class="widget-title">Mix <input placeholder="name" class="name" type="text"></div>
+			<div class="in"><input type="text" id="asrc1"> <label for="asrc1">src1</label></div>
+			<div class="in"><input type="text" id="asrc2"> <label for="asrc2">src2</label></div>
+			<div class="in"><input type="text" id="amix"> <label for="amix">mix</label></div>
+			<div class="outs">
+				<div class="out">out</div>
+			</div>
+		</div>
+		<div class="widget" data-func="output">
+			<div class="widget-title">Output Color</div>
+			<div class="in"><input type="text" id="out"> <label for="out">value</label></div>
+		</div>
+	</div>
 	<canvas id="canvas">
 		<p>
 			Your browser doesn't support HTML5 &lt;canvas&gt;.<br>
 			Try upgrading to the latest version of Microsoft Internet Explorer&reg;.
 		</p>
 	</canvas>
-</div>
-<div id="ui">
-	a
 </div>
 
 <dialog id="error-dialog">

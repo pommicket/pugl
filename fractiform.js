@@ -72,6 +72,7 @@ function on_key_press(e) {
 	if (e.target.tagName === 'INPUT') {
 		return;
 	}
+	console.log('key press', code);
 	
 	switch (code) {
 	case 32: // space
@@ -81,6 +82,9 @@ function on_key_press(e) {
 	case 9: // tab
 		set_ui_shown(!ui_shown);
 		e.preventDefault();
+		break;
+	case 13: // return
+		get_shader_source();
 		break;
 	}
 }
@@ -104,6 +108,22 @@ function on_click(e) {
 	update_key_modifiers_from_event(e);
 	if (!ui_shown) {
 		return;
+	}
+}
+
+function get_shader_source() {
+	let widgets = [];
+	for (let widget of document.getElementsByClassName('widget')) {
+		let names = widget.getElementsByClassName('name');
+		console.assert(names.length <= 1, 'multiple name inputs for widget');
+		let name = names.length > 0 ? names[0].value : null;
+		let func = widget.dataset.func;
+		let inputs = {};
+		for (let input of widget.getElementsByClassName('in')) {
+			let name = input.getElementsByTagName('label')[0].innerText;
+			inputs[name] = input.getElementsByTagName('input')[0].value;
+		}
+		console.log(name, func, inputs);
 	}
 }
 
@@ -160,9 +180,9 @@ function startup() {
 
 function frame(time) {
 	current_time = time * 1e-3;
-	
-	let page_width = page.offsetWidth;
-	let page_height = page.offsetHeight;	
+	let ui_width = ui_shown ? ui_div.offsetWidth : 0;
+	let page_width = page.offsetWidth - ui_width;
+	let page_height = page.offsetHeight;
 	
 	let aspect_ratio = width / height;
 	let canvas_x = 0, canvas_y = 0;
@@ -180,7 +200,7 @@ function frame(time) {
 	
 	canvas.width = viewport_width;
 	canvas.height = viewport_height;
-	canvas.style.left = canvas_x + 'px';
+	canvas.style.left = ui_width + canvas_x + 'px';
 	canvas.style.top = canvas_y + 'px';
 	
 	let step = true;
