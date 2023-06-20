@@ -2,6 +2,9 @@
 
 /*
 TODO:
+- prev controls:
+    - wrap?
+    - filter
 - detect circular dependencies
 - detect duplicate widget names
 */
@@ -36,16 +39,29 @@ function set_ui_shown(to) {
 }
 
 function rgba_hex_to_float(hex) {
-	if (hex.length !== 7 && hex.length !== 9) {
-		return null;
+	let r;
+	let g;
+	let b;
+	let a;
+	
+	if (hex.length === 7 || hex.length === 9) {
+		// #rrggbb or #rrggbbaa
+		r = parseInt(hex.substr(1, 2), 16) / 255;
+		g = parseInt(hex.substr(3, 2), 16) / 255;
+		b = parseInt(hex.substr(5, 2), 16) / 255;
+		a = hex.length === 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255;
+	} else if (hex.length === 4 || hex.length === 5) {
+		// #rgb or #rgba
+		r = parseInt(hex.substr(1, 1), 16) / 15;
+		g = parseInt(hex.substr(2, 1), 16) / 15;
+		b = parseInt(hex.substr(3, 1), 16) / 15;
+		a = hex.length === 4 ? 1 : parseInt(hex.substr(4, 1), 16) / 15;
 	}
-	let r = parseInt(hex.substr(1, 2), 16) / 255;
-	let g = parseInt(hex.substr(3, 2), 16) / 255;
-	let b = parseInt(hex.substr(5, 2), 16) / 255;
-	let a = hex.length <= 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255;
+
 	if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
 		return null;
 	}
+	
 	let color = {
 		r: r,
 		g: g,
@@ -86,7 +102,7 @@ precision highp float;
 
 uniform sampler2D u_texture;
 uniform float u_time;
-varying vec2 uv;
+varying vec2 pos;
 
 vec3 get_color() {
 	${source}
@@ -98,9 +114,9 @@ void main() {
 `;
 	const vertex_code = `
 attribute vec2 v_pos;
-varying vec2 uv;
+varying vec2 pos;
 void main() {
-	uv = v_pos * 0.5 + 0.5;
+	pos = v_pos;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `;
@@ -280,9 +296,9 @@ class GLSLGenerationState {
 				this.error('bad color: ' + input);
 				return null;
 			}
-			return input.length === 7 ?
+			return input.length === 4 || input.length === 7 ?
 				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)})`, type: 'vec3' } :
-				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
+				{ code: `vec4(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
 		}
 		
 		let dot = input.lastIndexOf('.');
@@ -313,7 +329,9 @@ class GLSLGenerationState {
 		if (dot === 0) {
 			switch (input) {
 			case '.pos':
-				return {code: 'uv', type: 'vec2'};
+				return {code: 'pos', type: 'vec2'};
+			case '.pos01':
+				return {code: '(0.5+0.5*pos)', type: 'vec2'};
 			case '.time':
 				return {code: 'u_time', type: 'float'};
 			default:
@@ -385,6 +403,75 @@ class GLSLGenerationState {
 		case 'output':
 			ret = this.compute_input(widget.inputs['value']);
 			break;
+		case 'mul': {
+			let a = this.compute_input(widget.inputs['a']);
+			let b = this.compute_input(widget.inputs['b']);
+			if (this.has_error) return null;
+			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
+				this.error(`cannot multiply types ${a.type} and ${b.type}`);
+				return null;
+			}
+			
+			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			let v = this.next_variable();
+			this.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
+			ret = {code: v, type: output_type};
+			} break;
+		case 'mod': {
+			let a = this.compute_input(widget.inputs['a']);
+			let b = this.compute_input(widget.inputs['b']);
+			if (this.has_error) return null;
+			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
+				this.error(`cannot take type ${a.type} modulo type ${b.type}`);
+				return null;
+			}
+			
+			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			let v = this.next_variable();
+			this.add_code(`${output_type} ${v} = mod(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
+			ret = {code: v, type: output_type};
+			} break;
+		case 'square': {
+			// square selector
+			let pos = this.compute_input(widget.inputs['pos']);
+			let inside = this.compute_input(widget.inputs['inside']);
+			let outside = this.compute_input(widget.inputs['outside']);
+			let size = this.compute_input(widget.inputs['size']);
+			if (this.has_error) return null;
+			if (type_base_type(pos.type) !== 'float') {
+				this.error('bad type for input pos: ' + pos.type);
+				return null;
+			}
+			let output_type = inside.type;
+			if (output_type !== outside.type) {
+				this.error(`selector input types ${inside.type} and ${outside.type} do not match`);
+				return null;
+			}
+			if (size.type !== 'float' && size.type !== pos.type) {
+				this.error(`bad type for square size: ${size.type}`);
+				return null;
+			}
+			let a = this.next_variable();
+			let b = this.next_variable();
+			let v = this.next_variable();
+			this.add_code(`${pos.type} ${a} = abs(${pos.code} / ${size.code});\n`);
+			switch (type_component_count(pos.type)) {
+			case 1:
+				b = a;
+				break;
+			case 2:
+				this.add_code(`float ${b} = max(${a}.x,${a}.y);\n`);
+				break;
+			case 3:
+				this.add_code(`float ${b} = max(${a}.x,max(${a}.y,${a}.z));\n`);
+				break;
+			case 4:
+				this.add_code(`float ${b} = max(${a}.x,max(${a}.y,max(${a}.z,${a}.w)));\n`);
+				break;
+			}
+			this.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
+			ret = {code: v, type: output_type};
+			} break;
 		default:
 			console.assert(false, 'bad function');
 			break;

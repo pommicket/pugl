@@ -124,6 +124,9 @@
 		margin: 2px;
 		display: block;
 	}
+	.name {
+		width: 10em;
+	}
 	</style>
 	<meta charset="utf-8">
 	<meta content="width=device-width,initial-scale=1" name="viewport">
@@ -167,6 +170,32 @@
 		<div class="widget" data-func="output">
 			<div class="widget-title">Output Color</div>
 			<div class="in"><input type="text" id="out"> <label for="out">value</label></div>
+		</div>
+		<div class="widget" data-func="mul">
+			<div class="widget-title">Multiply <input placeholder="name" class="name" type="text"></div>
+			<div class="in"><input type="text" id="a04"> <label for="a04">a</label></div>
+			<div class="in"><input type="text" id="a05"> <label for="a05">b</label></div>
+			<div class="outs">
+				<div class="out">out</div>
+			</div>
+		</div>
+		<div class="widget" data-func="square">
+			<div class="widget-title">Square selector <input placeholder="name" class="name" type="text"></div>
+			<div class="in"><input type="text" id="a02"> <label for="a02">pos</label></div>
+			<div class="in"><input type="text" id="a00"> <label for="a00">inside</label></div>
+			<div class="in"><input type="text" id="a01"> <label for="a01">outside</label></div>
+			<div class="in"><input type="text" id="a03"> <label for="a03">size</label></div>
+			<div class="outs">
+				<div class="out">out</div>
+			</div>
+		</div>
+		<div class="widget" data-func="mod">
+			<div class="widget-title">Modulo <input placeholder="name" class="name" type="text"></div>
+			<div class="in"><input type="text" id="a06"> <label for="a06">a</label></div>
+			<div class="in"><input type="text" id="a07"> <label for="a07">b</label></div>
+			<div class="outs">
+				<div class="out">out</div>
+			</div>
 		</div>
 	</div>
 	<canvas id="canvas">
