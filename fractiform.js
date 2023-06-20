@@ -37,11 +37,21 @@ function set_ui_shown(to) {
 }
 
 function rgba_hex_to_float(hex) {
+	if (hex.length !== 7 && hex.length !== 9) {
+		return null;
+	}
+	let r = parseInt(hex.substr(1, 2), 16) / 255;
+	let g = parseInt(hex.substr(3, 2), 16) / 255;
+	let b = parseInt(hex.substr(5, 2), 16) / 255;
+	let a = hex.length <= 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255;
+	if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
+		return null;
+	}
 	let color = {
-		r: parseInt(hex.substr(1, 2), 16) / 255,
-		g: parseInt(hex.substr(3, 2), 16) / 255,
-		b: parseInt(hex.substr(5, 2), 16) / 255,
-		a: hex.length <= 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255,
+		r: r,
+		g: g,
+		b: b,
+		a: a,
 	};
 	Object.preventExtensions(color);
 	return color;
@@ -111,20 +121,146 @@ function on_click(e) {
 	}
 }
 
+class CodeState {
+	constructor(widgets) {
+		this.widgets = widgets;
+		this.code = [];
+		this.variable = 0;
+		this.has_error = false;
+	}
+	
+	next_variable() {
+		this.variable += 1;
+		return 'v' + this.variable;
+	}
+	
+	add_code(code) {
+		this.code.push(code);
+	}
+	
+	error(message) {
+		this.has_error = true;
+		show_error(message);
+	}
+}
+
+function float_glsl(f) {
+	if (isNaN(f)) return '(0.0 / 0.0)';
+	if (f === Infinity) return '1e+1000';
+	if (f === -Infinity) return '1e-1000';
+	let s = f + '';
+	if (s.indexOf('.') !== -1 || s.indexOf('e') !== -1)
+		return s;
+	return s + '.0';
+}
+
+function compute_input(state, input) {
+	if (state.has_error) return null;
+	let f = parseFloat(input);
+	if (!isNaN(f)) return { code: float_glsl(f), type: 'float' };
+	
+	if (input[0] === '#') {
+		let color = rgba_hex_to_float(input);
+		if (color === null) {
+			state.error('bad color: ' + input);
+			return null;
+		}
+		return input.length === 7 ?
+			{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)})`, type: 'vec3' } :
+			{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
+	}
+	
+	// TODO: comma separated vectors
+	let dot = input.lastIndexOf('.');
+	let output = 'out';
+	if (dot !== -1) {
+		output = input.substr(dot + 1);
+		input = input.substr(0, dot);
+	}
+	let widget = state.widgets['-' + input];
+	if (widget === undefined) {
+		state.error('cannot find ' + input);
+		return null;
+	}
+	return compute_widget_output(state, widget, output);
+}
+
+function compute_widget_output(state, widget, output) {
+	if (state.has_error) return null;
+	
+	if (!(output in widget.outputs)) {
+		state.error('function ' + widget.func + ' has no output ' + output);
+		return null;
+	}
+	if (widget.outputs[output] !== null) {
+		// already computed
+		return widget.outputs[output];
+	}
+	
+	let ret = null;
+	switch (widget.func) {
+	case 'mix': {
+		let src1 = compute_input(state, widget.inputs['src1']);
+		let src2 = compute_input(state, widget.inputs['src2']);
+		let mix = compute_input(state, widget.inputs['mix']);
+		if (state.has_error) return null;
+		let type = src1.type;
+		let v = state.next_variable();
+		state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
+		ret = {type: type, code: v};
+		}
+		break;
+	case 'output':
+		ret = compute_input(state, widget.inputs['value']);
+		break;
+	default:
+		console.assert(false, 'bad function');
+		break;
+	}
+	console.assert(output !== null, 'ret not set');
+	widget.outputs[output] = ret;
+	return ret;
+}
+
 function get_shader_source() {
-	let widgets = [];
-	for (let widget of document.getElementsByClassName('widget')) {
-		let names = widget.getElementsByClassName('name');
+	let widgets = {};
+	let output_widget = null;
+	for (let widget_div of document.getElementsByClassName('widget')) {
+		let names = widget_div.getElementsByClassName('name');
 		console.assert(names.length <= 1, 'multiple name inputs for widget');
 		let name = names.length > 0 ? names[0].value : null;
-		let func = widget.dataset.func;
+		let func = widget_div.dataset.func;
 		let inputs = {};
-		for (let input of widget.getElementsByClassName('in')) {
+		for (let input of widget_div.getElementsByClassName('in')) {
 			let name = input.getElementsByTagName('label')[0].innerText;
 			inputs[name] = input.getElementsByTagName('input')[0].value;
 		}
-		console.log(name, func, inputs);
+		let widget = {
+			func: func,
+			inputs: inputs,
+			outputs: {},
+		};
+		for (let output of widget_div.getElementsByClassName('out')) {
+			widget.outputs[output.innerText] = null;
+		}
+		if (name !== null) {
+			widgets['-' + name] = widget;
+		}
+		if (func === 'output') {
+			output_widget = widget;
+		}
 	}
+	if (output_widget === null) {
+		state.error('no output color');
+		return;
+	}
+	let state = new CodeState(widgets);
+	output_widget.outputs['out'] = null;
+	let output = compute_widget_output(state, output_widget, 'out');
+	state.add_code(`return ${output.code};\n`)
+	let code = state.code.join('');
+	console.log(code);
+	return code;
 }
 
 function startup() {
