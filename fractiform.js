@@ -76,6 +76,36 @@ function update_key_modifiers_from_event(e) {
 	ctrl_key = e.ctrlKey;
 }
 
+function update_shader() {
+	let source = get_shader_source();
+	let fragment_code = `
+#ifdef GL_ES
+precision highp float;
+#endif
+
+uniform sampler2D u_texture;
+uniform float u_time;
+varying vec2 uv;
+
+vec3 get_color() {
+	${source}
+}
+
+void main() {
+	gl_FragColor = vec4(get_color(), 1.0);
+}
+`;
+	const vertex_code = `
+attribute vec2 v_pos;
+varying vec2 uv;
+void main() {
+	uv = v_pos * 0.5 + 0.5;
+	gl_Position = vec4(v_pos, 0.0, 1.0);
+}
+`;
+	program_main = compile_program('main', {'vertex': vertex_code, 'fragment': fragment_code});
+}
+
 function on_key_press(e) {
 	update_key_modifiers_from_event(e);
 	let code = e.keyCode;
@@ -94,7 +124,7 @@ function on_key_press(e) {
 		e.preventDefault();
 		break;
 	case 13: // return
-		get_shader_source();
+		update_shader();
 		break;
 	}
 }
@@ -121,7 +151,18 @@ function on_click(e) {
 	}
 }
 
-class CodeState {
+
+function float_glsl(f) {
+	if (isNaN(f)) return '(0.0 / 0.0)';
+	if (f === Infinity) return '1e+1000';
+	if (f === -Infinity) return '-1e+1000';
+	let s = f + '';
+	if (s.indexOf('.') !== -1 || s.indexOf('e') !== -1)
+		return s;
+	return s + '.0';
+}
+
+class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
 		this.code = [];
@@ -142,84 +183,78 @@ class CodeState {
 		this.has_error = true;
 		show_error(message);
 	}
-}
-
-function float_glsl(f) {
-	if (isNaN(f)) return '(0.0 / 0.0)';
-	if (f === Infinity) return '1e+1000';
-	if (f === -Infinity) return '1e-1000';
-	let s = f + '';
-	if (s.indexOf('.') !== -1 || s.indexOf('e') !== -1)
-		return s;
-	return s + '.0';
-}
-
-function compute_input(state, input) {
-	if (state.has_error) return null;
-	let f = parseFloat(input);
-	if (!isNaN(f)) return { code: float_glsl(f), type: 'float' };
 	
-	if (input[0] === '#') {
-		let color = rgba_hex_to_float(input);
-		if (color === null) {
-			state.error('bad color: ' + input);
+	get_code() {
+		return this.code.join('');
+	}
+	
+	compute_input(input) {
+		if (this.has_error) return null;
+		let f = parseFloat(input);
+		if (!isNaN(f)) return { code: float_glsl(f), type: 'float' };
+		
+		if (input[0] === '#') {
+			let color = rgba_hex_to_float(input);
+			if (color === null) {
+				this.error('bad color: ' + input);
+				return null;
+			}
+			return input.length === 7 ?
+				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)})`, type: 'vec3' } :
+				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
+		}
+		
+		// TODO: comma separated vectors
+		let dot = input.lastIndexOf('.');
+		let output = 'out';
+		if (dot !== -1) {
+			output = input.substr(dot + 1);
+			input = input.substr(0, dot);
+		}
+		let widget = this.widgets['-' + input];
+		if (widget === undefined) {
+			this.error('cannot find ' + input);
 			return null;
 		}
-		return input.length === 7 ?
-			{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)})`, type: 'vec3' } :
-			{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
+		return this.compute_widget_output(widget, output);
 	}
 	
-	// TODO: comma separated vectors
-	let dot = input.lastIndexOf('.');
-	let output = 'out';
-	if (dot !== -1) {
-		output = input.substr(dot + 1);
-		input = input.substr(0, dot);
-	}
-	let widget = state.widgets['-' + input];
-	if (widget === undefined) {
-		state.error('cannot find ' + input);
-		return null;
-	}
-	return compute_widget_output(state, widget, output);
-}
-
-function compute_widget_output(state, widget, output) {
-	if (state.has_error) return null;
-	
-	if (!(output in widget.outputs)) {
-		state.error('function ' + widget.func + ' has no output ' + output);
-		return null;
-	}
-	if (widget.outputs[output] !== null) {
-		// already computed
-		return widget.outputs[output];
-	}
-	
-	let ret = null;
-	switch (widget.func) {
-	case 'mix': {
-		let src1 = compute_input(state, widget.inputs['src1']);
-		let src2 = compute_input(state, widget.inputs['src2']);
-		let mix = compute_input(state, widget.inputs['mix']);
-		if (state.has_error) return null;
-		let type = src1.type;
-		let v = state.next_variable();
-		state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
-		ret = {type: type, code: v};
+	compute_widget_output(widget, output) {
+		if (this.has_error) return null;
+		
+		if (!(output in widget.outputs)) {
+			this.error('function ' + widget.func + ' has no output ' + output);
+			return null;
 		}
-		break;
-	case 'output':
-		ret = compute_input(state, widget.inputs['value']);
-		break;
-	default:
-		console.assert(false, 'bad function');
-		break;
+		if (widget.outputs[output] !== null) {
+			// already computed
+			return widget.outputs[output];
+		}
+		
+		let ret = null;
+		switch (widget.func) {
+		case 'mix': {
+			let src1 = this.compute_input(widget.inputs['src1']);
+			let src2 = this.compute_input(widget.inputs['src2']);
+			let mix = this.compute_input(widget.inputs['mix']);
+			if (this.has_error) return null;
+			let type = src1.type;
+			let v = this.next_variable();
+			this.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
+			ret = {type: type, code: v};
+			}
+			break;
+		case 'output':
+			ret = this.compute_input(widget.inputs['value']);
+			break;
+		default:
+			console.assert(false, 'bad function');
+			break;
+		}
+		console.assert(output !== null, 'ret not set');
+		widget.outputs[output] = ret;
+		return ret;
 	}
-	console.assert(output !== null, 'ret not set');
-	widget.outputs[output] = ret;
-	return ret;
 }
 
 function get_shader_source() {
@@ -250,16 +285,16 @@ function get_shader_source() {
 			output_widget = widget;
 		}
 	}
+	
+	let state = new GLSLGenerationState(widgets);
 	if (output_widget === null) {
 		state.error('no output color');
 		return;
 	}
-	let state = new CodeState(widgets);
 	output_widget.outputs['out'] = null;
-	let output = compute_widget_output(state, output_widget, 'out');
+	let output = state.compute_widget_output(output_widget, 'out');
 	state.add_code(`return ${output.code};\n`)
-	let code = state.code.join('');
-	console.log(code);
+	let code = state.get_code();
 	return code;
 }
 
@@ -278,12 +313,63 @@ function startup() {
 		}
 	}
 	
-	program_main = compile_program('main', ['main-vertex-shader', 'main-fragment-shader']);
+	program_main = compile_program('main', {
+		'vertex': `
+attribute vec2 v_pos;
+varying vec2 uv;
+void main() {
+	uv = v_pos * 0.5 + 0.5;
+	gl_Position = vec4(v_pos, 0.0, 1.0);
+}`,
+		'fragment': `
+#ifdef GL_ES
+precision highp float;
+#endif
+
+uniform sampler2D u_texture;
+uniform float u_time;
+varying vec2 uv;
+
+void main() {
+	vec2 u = pow(uv,vec2(1.2 + 0.4 * sin(u_time)));
+	vec2 k =floor(3.0 * u); 
+	int i = int(k.y * 3.0 + k.x);
+	if (i == 4) discard;
+	vec3 sample = texture2D(u_texture, mod(3.0*u, 1.0)).xyz;
+	float h = mod(float(i) * 5.0, 8.0) / 8.0;
+	sample = vec3(
+		mix(sample.x, sample.z, h),
+		mix(sample.y, sample.x, h),
+		mix(sample.z, sample.y, h)
+	);
+	gl_FragColor = vec4(mix(sample, vec3(1.0,0.0,0.0), 0.2),1.0);
+}
+`
+	});
 	if (program_main === null) {
 		return;
 	}
 	
-	program_post = compile_program('post', ['post-vertex-shader', 'post-fragment-shader']);
+	program_post = compile_program('post', {
+		'vertex': `
+attribute vec2 v_pos;
+varying vec2 uv;
+void main() {
+	uv = v_pos * 0.5 + 0.5;
+	gl_Position = vec4(v_pos, 0.0, 1.0);
+}
+`,
+		'fragment': `
+#ifdef GL_ES
+precision highp float;
+#endif
+uniform sampler2D u_texture;
+varying vec2 uv;
+void main() {
+	gl_FragColor = texture2D(u_texture, uv);
+}
+`,
+	});
 	if (program_post === null) {
 		return;
 	}
@@ -395,14 +481,12 @@ function perform_step() {
 	
 function compile_program(name, shaders) {
 	let program = gl.createProgram();
-	for (let i = 0; i < shaders.length; i++) {
-		let shader_element = document.getElementById(shaders[i]);
-		let source = shader_element.firstChild.nodeValue;
-		let type = shader_element.getAttribute('type');
+	for (let type in shaders) {
+		let source = shaders[type];
 		let gl_type;
-		if (type === 'x-shader/x-vertex') {
+		if (type === 'vertex') {
 			gl_type = gl.VERTEX_SHADER;
-		} else if (type === 'x-shader/x-fragment') {
+		} else if (type === 'fragment') {
 			gl_type = gl.FRAGMENT_SHADER;
 		} else {
 			show_error('unrecognized shader type: ' + type);
