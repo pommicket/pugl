@@ -78,6 +78,8 @@ function update_key_modifiers_from_event(e) {
 
 function update_shader() {
 	let source = get_shader_source();
+	if (source === null)
+		return;
 	let fragment_code = `
 #ifdef GL_ES
 precision highp float;
@@ -109,7 +111,7 @@ void main() {
 function on_key_press(e) {
 	update_key_modifiers_from_event(e);
 	let code = e.keyCode;
-	if (e.target.tagName === 'INPUT') {
+	if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
 		return;
 	}
 	console.log('key press', code);
@@ -125,6 +127,7 @@ function on_key_press(e) {
 		break;
 	case 13: // return
 		update_shader();
+		e.preventDefault();
 		break;
 	}
 }
@@ -162,6 +165,45 @@ function float_glsl(f) {
 	return s + '.0';
 }
 
+function type_component_count(type) {
+	switch (type) {
+	case 'float': return 1;
+	case 'vec2': return 2;
+	case 'vec3': return 3;
+	case 'vec4': return 4;
+	default:
+		return 0;
+	}
+}
+
+function type_base_type(type) {
+	switch (type) {
+	case 'float':
+	case 'vec2':
+	case 'vec3':
+	case 'vec4':
+		return 'float';
+	default:
+		return null;
+	}
+}
+
+function type_vec(base_type, component_count) {
+	switch (base_type) {
+	case 'float':
+		switch (component_count) {
+		case 1: return 'float';
+		case 2: return 'vec2';
+		case 3: return 'vec3';
+		case 4: return 'vec4';
+		default:
+			return null;
+		}
+	default:
+		return null;
+	}
+}
+
 class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
@@ -190,8 +232,47 @@ class GLSLGenerationState {
 	
 	compute_input(input) {
 		if (this.has_error) return null;
-		let f = parseFloat(input);
-		if (!isNaN(f)) return { code: float_glsl(f), type: 'float' };
+		if (!isNaN(input)) return { code: float_glsl(parseFloat(input)), type: 'float' };
+		
+		if (input.indexOf(',') !== -1) {
+			// vector construction
+			let items = input.split(',');
+			console.assert(items.length >= 2, 'huhhhhh??');
+			let components = [];
+			for (let item of items) {
+				components.push(this.compute_input(item));
+			}
+			if (this.has_error)
+				return null;
+			let component_count = 0;
+			let base_type = undefined;
+			for (let component of components) {
+				let type = component.type;
+				let c = type_component_count(type);
+				if (c === 0) {
+					this.error(`cannot use type ${type} with ,`);
+					return null;
+				}
+				component_count += c;
+				if (base_type === undefined) {
+					base_type = type_base_type(type);
+				}
+				if (base_type !== type_base_type(type)) {
+					this.error('bad combination of types for ,');
+					return null;
+				}
+			}
+			let type = type_vec(base_type, component_count);
+			if (type === null) {
+				// e.g. trying to combine 5 floats
+				this.error('bad combination of types for ,');
+				return null;
+			}
+			let v = this.next_variable();
+			let component_values = components.map(function (c) { return c.code; });
+			this.add_code(`${type} ${v} = ${type}(${component_values.join()});\n`);
+			return {type: type, code: v};
+		}
 		
 		if (input[0] === '#') {
 			let color = rgba_hex_to_float(input);
@@ -204,11 +285,42 @@ class GLSLGenerationState {
 				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
 		}
 		
-		// TODO: comma separated vectors
 		let dot = input.lastIndexOf('.');
-		let output = 'out';
+		let field = dot === -1 ? 'out' : input.substr(dot + 1);
+		
+		if (field.length === 0) {
+			this.error('inputs should not end in .');
+			return null;
+		}
+		
+		if (field.length >= 1 && field.length <= 4 && field.split('').every(function (c) { return 'xyzw'.indexOf(c) !== -1 })) {
+			// swizzle
+			let vector = this.compute_input(input.substr(0, dot));
+			let base = type_base_type(vector.type);
+			let count = type_component_count(vector.type);
+			
+			for (let c of field) {
+				let i = 'xyzw'.indexOf(c);
+				if (i >= count) {
+					this.error(`type ${vector.type} has no field ${c}.`);
+					return null;
+				}
+			}
+			
+			return {code: `(${vector.code}).${field}`, type: type_vec(base, field.length)};
+		}
+		
+		if (dot === 0) {
+			switch (input) {
+			case '.pos':
+				return {code: 'uv', type: 'vec2'};
+			default:
+				this.error(`no such builtin: ${input}`);
+				return null;
+			}
+		}
+		
 		if (dot !== -1) {
-			output = input.substr(dot + 1);
 			input = input.substr(0, dot);
 		}
 		let widget = this.widgets['-' + input];
@@ -216,7 +328,7 @@ class GLSLGenerationState {
 			this.error('cannot find ' + input);
 			return null;
 		}
-		return this.compute_widget_output(widget, output);
+		return this.compute_widget_output(widget, field);
 	}
 	
 	compute_widget_output(widget, output) {
@@ -238,6 +350,18 @@ class GLSLGenerationState {
 			let src2 = this.compute_input(widget.inputs['src2']);
 			let mix = this.compute_input(widget.inputs['mix']);
 			if (this.has_error) return null;
+			
+			let types_good = type_base_type(src1.type) === 'float' &&
+				type_base_type(src2.type) === 'float' &&
+				type_base_type(mix.type) === 'float' &&
+				type_component_count(src1.type) === type_component_count(src2.type) &&
+				(type_component_count(mix.type) === type_component_count(src1.type) ||
+				 type_component_count(mix.type) === 1);
+			if (!types_good) {
+				this.error('bad types for mix: ' + [src1, src2, mix].map(function (x) { return x.type; }).join(', '));
+				return null;
+			}
+			
 			let type = src1.type;
 			let v = this.next_variable();
 			this.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
@@ -289,12 +413,18 @@ function get_shader_source() {
 	let state = new GLSLGenerationState(widgets);
 	if (output_widget === null) {
 		state.error('no output color');
-		return;
+		return null;
 	}
 	output_widget.outputs['out'] = null;
 	let output = state.compute_widget_output(output_widget, 'out');
+	if (state.has_error) return null;
+	if (output.type !== 'vec3') {
+		state.error('output color should have type vec3, but it has type ' + output.type);
+		return null;
+	}
 	state.add_code(`return ${output.code};\n`)
 	let code = state.get_code();
+	console.log(code);
 	return code;
 }
 
