@@ -2,9 +2,8 @@
 
 /*
 TODO:
-- draw lines btwn vertex positions and uvs
-- synthlike interface? (change name to fraxynth?)
-- grid
+- detect circular dependencies
+- detect duplicate widget names
 */
 
 let gl;
@@ -231,6 +230,7 @@ class GLSLGenerationState {
 	}
 	
 	compute_input(input) {
+		input = input.trim();
 		if (this.has_error) return null;
 		if (!isNaN(input)) return { code: float_glsl(parseFloat(input)), type: 'float' };
 		
@@ -314,6 +314,8 @@ class GLSLGenerationState {
 			switch (input) {
 			case '.pos':
 				return {code: 'uv', type: 'vec2'};
+			case '.time':
+				return {code: 'u_time', type: 'float'};
 			default:
 				this.error(`no such builtin: ${input}`);
 				return null;
@@ -368,6 +370,18 @@ class GLSLGenerationState {
 			ret = {type: type, code: v};
 			}
 			break;
+		case 'prev': {
+			let pos = this.compute_input(widget.inputs['pos']);
+			if (this.has_error) return null;
+			if (pos.type !== 'vec2') {
+				this.error('bad type for sample position: ' + pos.type);
+				return null;
+			}
+			
+			let v = this.next_variable();
+			this.add_code(`vec3 ${v} = texture2D(u_texture, ${pos.code}).xyz;\n`);
+			ret = {type: 'vec3', code: v};
+			} break;
 		case 'output':
 			ret = this.compute_input(widget.inputs['value']);
 			break;
@@ -622,6 +636,8 @@ function compile_program(name, shaders) {
 			show_error('unrecognized shader type: ' + type);
 		}
 		let shader = compile_shader(name + ' ' + type, gl_type, source);
+		if (shader === null)
+			return null;
 		gl.attachShader(program, shader);
 	}
 	
