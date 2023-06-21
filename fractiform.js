@@ -27,6 +27,7 @@ let ui_shown = true;
 let ui_div;
 let viewport_width, viewport_height;
 let shift_key = false, ctrl_key = false;
+let html_id = 0;
 
 let width = 1920, height = 1920;
 
@@ -355,6 +356,39 @@ function type_vec(base_type, component_count) {
 	}
 }
 
+function add_widget(func) {
+	let info = widget_info[func];
+	console.assert(info !== undefined, 'bad widget name: ' + func);
+	let root = document.createElement('div');
+	root.dataset.func = func;
+	root.classList.add('widget');
+	
+	{ // title
+		let title = document.createElement('div');
+		title.classList.add('widget-title');
+		title.appendChild(document.createTextNode(info.name));
+		root.appendChild(title);
+	}
+	
+	for (let input of info.inputs) {
+		let container = document.createElement('div');
+		container.classList.add('in');
+		let input_element = document.createElement('input');
+		input_element.type = 'text';
+		input_element.id = 'gen-input-' + (++html_id);
+		let label = document.createElement('label');
+		label.htmlFor = input_element.id;
+		label.appendChild(document.createTextNode(input.name));
+		container.appendChild(input_element);
+		container.appendChild(document.createTextNode(' '));
+		container.appendChild(label);
+		root.appendChild(container);
+	}
+	
+	ui_div.appendChild(root);
+	return true;
+}
+
 class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
@@ -645,6 +679,8 @@ void main() {
 	sampler_texture = gl.createTexture();
 	
 	set_up_framebuffer();
+	add_widget('output');
+	add_widget('mod');
 	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
