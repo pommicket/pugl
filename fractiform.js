@@ -30,7 +30,7 @@ let shift_key = false, ctrl_key = false;
 
 let width = 1920, height = 1920;
 
-const widgets_available = {
+const widget_info = {
 	'mix': {
 		name: 'Mix',
 		inputs: [
@@ -57,7 +57,7 @@ const widgets_available = {
 			let type = src1.type;
 			let v = state.next_variable();
 			state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
-			return {type: type, code: v};
+			return {out: {type: type, code: v}};
 		},
 	},
 	'prev': {
@@ -75,16 +75,16 @@ const widgets_available = {
 			}
 			let v = state.next_variable();
 			state.add_code(`vec3 ${v} = texture2D(u_texture, ${pos.code}).xyz;\n`);
-			return {type: 'vec3', code: v};
+			return {out: {type: 'vec3', code: v}};
 		},
 	},
-	'out': {
+	'output': {
 		name: 'Output color',
 		inputs: [{name: 'value'}],
 		controls: [],
 		outputs: [],
 		func: function(state, inputs) {
-			return inputs.value;
+			return {out: inputs.value};
 		}
 	},
 	'mul': {
@@ -101,7 +101,7 @@ const widgets_available = {
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
-			return {code: v, type: output_type};
+			return {out: {code: v, type: output_type}};
 		},
 	},
 	'mod': {
@@ -119,7 +119,7 @@ const widgets_available = {
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = mod(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
-			return {code: v, type: output_type};
+			return {out: {code: v, type: output_type}};
 		}
 	},
 	'square': {
@@ -161,7 +161,7 @@ const widgets_available = {
 				break;
 			}
 			state.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
-			return {code: v, type: output_type};
+			return {out: {code: v, type: output_type}};
 		},
 	},
 };
@@ -360,7 +360,6 @@ class GLSLGenerationState {
 		this.widgets = widgets;
 		this.code = [];
 		this.variable = 0;
-		this.has_error = false;
 	}
 	
 	next_variable() {
@@ -372,23 +371,18 @@ class GLSLGenerationState {
 		this.code.push(code);
 	}
 	
-	error(message) {
-		this.has_error = true;
-		show_error(message);
-	}
-	
 	get_code() {
 		return this.code.join('');
 	}
 	
 	compute_input(input) {
-		if (this.has_error) return null;
 		input = input.trim();
 		if (input.length === 0) {
-			this.error('empty input');
-			return null;
+			return {error: 'empty input'};
 		}
-		if (!isNaN(input)) return { code: float_glsl(parseFloat(input)), type: 'float' };
+		if (!isNaN(input)) {
+			return { code: float_glsl(parseFloat(input)), type: 'float' };
+		}
 		
 		if (input.indexOf(',') !== -1) {
 			// vector construction
@@ -396,33 +390,32 @@ class GLSLGenerationState {
 			console.assert(items.length >= 2, 'huhhhhh??');
 			let components = [];
 			for (let item of items) {
-				components.push(this.compute_input(item));
+				let input = this.compute_input(item);
+				if ('error' in input) {
+					return {error: input.error};
+				}
+				components.push(input);
 			}
-			if (this.has_error)
-				return null;
 			let component_count = 0;
 			let base_type = undefined;
 			for (let component of components) {
 				let type = component.type;
 				let c = type_component_count(type);
 				if (c === 0) {
-					this.error(`cannot use type ${type} with ,`);
-					return null;
+					return {error: `cannot use type ${type} with ,`};
 				}
 				component_count += c;
 				if (base_type === undefined) {
 					base_type = type_base_type(type);
 				}
 				if (base_type !== type_base_type(type)) {
-					this.error('bad combination of types for ,');
-					return null;
+					return {error: 'bad combination of types for ,'};
 				}
 			}
 			let type = type_vec(base_type, component_count);
 			if (type === null) {
 				// e.g. trying to combine 5 floats
-				this.error('bad combination of types for ,');
-				return null;
+				return {error: 'bad combination of types for ,'};
 			}
 			let v = this.next_variable();
 			let component_values = components.map(function (c) { return c.code; });
@@ -433,8 +426,7 @@ class GLSLGenerationState {
 		if (input[0] === '#') {
 			let color = rgba_hex_to_float(input);
 			if (color === null) {
-				this.error('bad color: ' + input);
-				return null;
+				return {error: 'bad color: ' + input};
 			}
 			return input.length === 4 || input.length === 7 ?
 				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)})`, type: 'vec3' } :
@@ -445,8 +437,7 @@ class GLSLGenerationState {
 		let field = dot === -1 ? 'out' : input.substr(dot + 1);
 		
 		if (field.length === 0) {
-			this.error('inputs should not end in .');
-			return null;
+			return {error: 'inputs should not end in .'};
 		}
 		
 		if (field.length >= 1 && field.length <= 4 && field.split('').every(function (c) { return 'xyzw'.indexOf(c) !== -1 })) {
@@ -458,8 +449,7 @@ class GLSLGenerationState {
 			for (let c of field) {
 				let i = 'xyzw'.indexOf(c);
 				if (i >= count) {
-					this.error(`type ${vector.type} has no field ${c}.`);
-					return null;
+					return {error: `type ${vector.type} has no field ${c}.`};
 				}
 			}
 			
@@ -475,8 +465,7 @@ class GLSLGenerationState {
 			case '.time':
 				return {code: 'u_time', type: 'float'};
 			default:
-				this.error(`no such builtin: ${input}`);
-				return null;
+				return {error: `no such builtin: ${input}`};
 			}
 		}
 		
@@ -485,140 +474,35 @@ class GLSLGenerationState {
 		}
 		let widget = this.widgets['-' + input];
 		if (widget === undefined) {
-			this.error('cannot find ' + input);
-			return null;
+			return {error: 'cannot find ' + input};
 		}
 		return this.compute_widget_output(widget, field);
 	}
 	
 	compute_widget_output(widget, output) {
-		if (this.has_error) return null;
+		if (!('outputs' in widget)) {
+			let info = widget_info[widget.func];
+			let inputs = {};
+			for (let input in widget.inputs) {
+				let value = this.compute_input(widget.inputs[input]);
+				if ('error' in value) {
+					widget.outputs = {error: value.error};
+					return {error: value.error};
+				}
+				inputs[input] = value;	
+			}
+			let outputs = info.func(this, inputs);
+			widget.outputs = outputs;
+		}
 		
-		if (!(output in widget.outputs)) {
-			this.error('function ' + widget.func + ' has no output ' + output);
-			return null;
+		let outputs = widget.outputs;
+		if ('error' in outputs) {
+			return {error: outputs.error};
 		}
-		if (widget.outputs[output] !== null) {
-			// already computed
-			return widget.outputs[output];
+		if (!(output in outputs)) {
+			return {error: `function ${widget.func} has no output ${output}`};
 		}
-		
-		let ret = null;
-		switch (widget.func) {
-		case 'mix': {
-			let src1 = this.compute_input(widget.inputs['src1']);
-			let src2 = this.compute_input(widget.inputs['src2']);
-			let mix = this.compute_input(widget.inputs['mix']);
-			if (this.has_error) return null;
-			
-			let types_good = type_base_type(src1.type) === 'float' &&
-				type_base_type(src2.type) === 'float' &&
-				type_base_type(mix.type) === 'float' &&
-				type_component_count(src1.type) === type_component_count(src2.type) &&
-				(type_component_count(mix.type) === type_component_count(src1.type) ||
-				 type_component_count(mix.type) === 1);
-			if (!types_good) {
-				this.error('bad types for mix: ' + [src1, src2, mix].map(function (x) { return x.type; }).join(', '));
-				return null;
-			}
-			
-			let type = src1.type;
-			let v = this.next_variable();
-			this.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
-			ret = {type: type, code: v};
-			}
-			break;
-		case 'prev': {
-			let pos = this.compute_input(widget.inputs['pos']);
-			if (this.has_error) return null;
-			if (pos.type !== 'vec2') {
-				this.error('bad type for sample position: ' + pos.type);
-				return null;
-			}
-			
-			let v = this.next_variable();
-			this.add_code(`vec3 ${v} = texture2D(u_texture, ${pos.code}).xyz;\n`);
-			ret = {type: 'vec3', code: v};
-			} break;
-		case 'output':
-			ret = this.compute_input(widget.inputs['value']);
-			break;
-		case 'mul': {
-			let a = this.compute_input(widget.inputs['a']);
-			let b = this.compute_input(widget.inputs['b']);
-			if (this.has_error) return null;
-			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
-				this.error(`cannot multiply types ${a.type} and ${b.type}`);
-				return null;
-			}
-			
-			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
-			let v = this.next_variable();
-			this.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
-			ret = {code: v, type: output_type};
-			} break;
-		case 'mod': {
-			let a = this.compute_input(widget.inputs['a']);
-			let b = this.compute_input(widget.inputs['b']);
-			if (this.has_error) return null;
-			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
-				this.error(`cannot take type ${a.type} modulo type ${b.type}`);
-				return null;
-			}
-			
-			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
-			let v = this.next_variable();
-			this.add_code(`${output_type} ${v} = mod(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
-			ret = {code: v, type: output_type};
-			} break;
-		case 'square': {
-			// square selector
-			let pos = this.compute_input(widget.inputs['pos']);
-			let inside = this.compute_input(widget.inputs['inside']);
-			let outside = this.compute_input(widget.inputs['outside']);
-			let size = this.compute_input(widget.inputs['size']);
-			if (this.has_error) return null;
-			if (type_base_type(pos.type) !== 'float') {
-				this.error('bad type for input pos: ' + pos.type);
-				return null;
-			}
-			let output_type = inside.type;
-			if (output_type !== outside.type) {
-				this.error(`selector input types ${inside.type} and ${outside.type} do not match`);
-				return null;
-			}
-			if (size.type !== 'float' && size.type !== pos.type) {
-				this.error(`bad type for square size: ${size.type}`);
-				return null;
-			}
-			let a = this.next_variable();
-			let b = this.next_variable();
-			let v = this.next_variable();
-			this.add_code(`${pos.type} ${a} = abs(${pos.code} / ${size.code});\n`);
-			switch (type_component_count(pos.type)) {
-			case 1:
-				b = a;
-				break;
-			case 2:
-				this.add_code(`float ${b} = max(${a}.x,${a}.y);\n`);
-				break;
-			case 3:
-				this.add_code(`float ${b} = max(${a}.x,max(${a}.y,${a}.z));\n`);
-				break;
-			case 4:
-				this.add_code(`float ${b} = max(${a}.x,max(${a}.y,max(${a}.z,${a}.w)));\n`);
-				break;
-			}
-			this.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
-			ret = {code: v, type: output_type};
-			} break;
-		default:
-			console.assert(false, 'bad function');
-			break;
-		}
-		console.assert(output !== null, 'ret not set');
-		widget.outputs[output] = ret;
-		return ret;
+		return outputs[output];
 	}
 }
 
@@ -638,11 +522,7 @@ function get_shader_source() {
 		let widget = {
 			func: func,
 			inputs: inputs,
-			outputs: {},
 		};
-		for (let output of widget_div.getElementsByClassName('out')) {
-			widget.outputs[output.innerText] = null;
-		}
 		if (name !== null) {
 			widgets['-' + name] = widget;
 		}
@@ -653,14 +533,16 @@ function get_shader_source() {
 	
 	let state = new GLSLGenerationState(widgets);
 	if (output_widget === null) {
-		state.error('no output color');
+		show_error('no output color');
 		return null;
 	}
-	output_widget.outputs['out'] = null;
 	let output = state.compute_widget_output(output_widget, 'out');
-	if (state.has_error) return null;
+	if ('error' in output) {
+		show_error(output.error);
+		return null;
+	}
 	if (output.type !== 'vec3') {
-		state.error('output color should have type vec3, but it has type ' + output.type);
+		show_error('output color should have type vec3, but it has type ' + output.type);
 		return null;
 	}
 	state.add_code(`return ${output.code};\n`)
