@@ -30,6 +30,142 @@ let shift_key = false, ctrl_key = false;
 
 let width = 1920, height = 1920;
 
+const widgets_available = {
+	'mix': {
+		name: 'Mix',
+		inputs: [
+			{name: 'src1'},
+			{name: 'src2'},
+			{name: 'mix'},
+		],
+		controls: [{name: 'clamp mix', type: 'checkbox'}],
+		outputs: [{name: 'out'}],
+		func: function(state, inputs) {
+			let src1 = inputs.src1;
+			let src2 = inputs.src2;
+			let mix = inputs.mix;
+			let types_good = type_base_type(src1.type) === 'float' &&
+				type_base_type(src2.type) === 'float' &&
+				type_base_type(mix.type) === 'float' &&
+				type_component_count(src1.type) === type_component_count(src2.type) &&
+				(type_component_count(mix.type) === type_component_count(src1.type) ||
+				 type_component_count(mix.type) === 1);
+			if (!types_good) {
+				return {error: 'bad types for mix: ' + [src1, src2, mix].map(function (x) { return x.type; }).join(', ')};
+			}
+			
+			let type = src1.type;
+			let v = state.next_variable();
+			state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
+			return {type: type, code: v};
+		},
+	},
+	'prev': {
+		name: 'Last frame',
+		inputs: [{name: 'pos'}],
+		controls: [
+			{name: 'wrap', type: 'checkbox'},
+			{name: 'blend', type: 'select:linear|nearest'},
+		],
+		outputs: [{name: 'out'}],
+		func: function(state, inputs) {
+			let pos = inputs.pos;
+			if (pos.type !== 'vec2') {
+				return {error: 'bad type for sample position: ' + pos.type};
+			}
+			let v = state.next_variable();
+			state.add_code(`vec3 ${v} = texture2D(u_texture, ${pos.code}).xyz;\n`);
+			return {type: 'vec3', code: v};
+		},
+	},
+	'out': {
+		name: 'Output color',
+		inputs: [{name: 'value'}],
+		controls: [],
+		outputs: [],
+		func: function(state, inputs) {
+			return inputs.value;
+		}
+	},
+	'mul': {
+		name: 'Multiply',
+		inputs: [{name: 'a', name: 'b'}],
+		controls: [],
+		outputs: [{name: 'out'}],
+		func: function(state, inputs) {
+			let a = inputs.a;
+			let b = inputs.b;
+			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
+				return {error: `cannot multiply types ${a.type} and ${b.type}`};
+			}
+			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			let v = state.next_variable();
+			state.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
+			return {code: v, type: output_type};
+		},
+	},
+	'mod': {
+		name: 'Modulo',
+		inputs: [{name: 'a'}, {name: 'b'}],
+		controls: [],
+		outputs: [{name: 'out', type: 'x'}],
+		func: function(state, inputs) {
+			let a = inputs.a;
+			let b = inputs.b;
+			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
+				return {error: `cannot take type ${a.type} modulo type ${b.type}`};
+			}
+			
+			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			let v = state.next_variable();
+			state.add_code(`${output_type} ${v} = mod(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
+			return {code: v, type: output_type};
+		}
+	},
+	'square': {
+		name: 'Square',
+		inputs: [{name: 'pos'}, {name: 'inside'}, {name: 'outside'}, {name: 'size'}],
+		controls: [],
+		outputs: [{name: 'out'}],
+		func: function(state, inputs) {
+			let pos = inputs.pos;
+			let inside = inputs.inside;
+			let outside = inputs.outside;
+			let size = inputs.size;
+			if (type_base_type(pos.type) !== 'float') {
+				return {error: 'bad type for input pos: ' + pos.type};
+			}
+			let output_type = inside.type;
+			if (output_type !== outside.type) {
+				return {error: `selector input types ${inside.type} and ${outside.type} do not match`};
+			}
+			if (size.type !== 'float' && size.type !== pos.type) {
+				return {error: `bad type for square size: ${size.type}`};
+			}
+			let a = state.next_variable();
+			let b = state.next_variable();
+			let v = state.next_variable();
+			state.add_code(`${pos.type} ${a} = abs(${pos.code} / ${size.code});\n`);
+			switch (type_component_count(pos.type)) {
+			case 1:
+				b = a;
+				break;
+			case 2:
+				state.add_code(`float ${b} = max(${a}.x,${a}.y);\n`);
+				break;
+			case 3:
+				state.add_code(`float ${b} = max(${a}.x,max(${a}.y,${a}.z));\n`);
+				break;
+			case 4:
+				state.add_code(`float ${b} = max(${a}.x,max(${a}.y,max(${a}.z,${a}.w)));\n`);
+				break;
+			}
+			state.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
+			return {code: v, type: output_type};
+		},
+	},
+};
+
 window.addEventListener('load', startup);
 
 function set_ui_shown(to) {
@@ -246,8 +382,12 @@ class GLSLGenerationState {
 	}
 	
 	compute_input(input) {
-		input = input.trim();
 		if (this.has_error) return null;
+		input = input.trim();
+		if (input.length === 0) {
+			this.error('empty input');
+			return null;
+		}
 		if (!isNaN(input)) return { code: float_glsl(parseFloat(input)), type: 'float' };
 		
 		if (input.indexOf(',') !== -1) {
