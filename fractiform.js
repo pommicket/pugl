@@ -28,6 +28,8 @@ let ui_div;
 let viewport_width, viewport_height;
 let shift_key = false, ctrl_key = false;
 let html_id = 0;
+let widget_choices;
+let widget_search;
 
 let width = 1920, height = 1920;
 
@@ -166,6 +168,15 @@ const widget_info = {
 		},
 	},
 };
+let widget_ids_sorted_by_name = [];
+for (let id in widget_info) { 
+	widget_ids_sorted_by_name.push(id);
+}
+widget_ids_sorted_by_name.sort(function (a, b) {
+	a = widget_info[a].name;
+	b = widget_info[b].name;
+	return a.localeCompare(b);
+});
 
 window.addEventListener('load', startup);
 
@@ -367,6 +378,12 @@ function add_widget(func) {
 		let title = document.createElement('div');
 		title.classList.add('widget-title');
 		title.appendChild(document.createTextNode(info.name));
+		if (func !== 'output') {
+			let name_input = document.createElement('input');
+			name_input.placeholder = 'Name';
+			name_input.classList.add('widget-name');
+			title.appendChild(name_input);
+		}
 		root.appendChild(title);
 	}
 	
@@ -560,7 +577,7 @@ function get_shader_source() {
 	let widgets = {};
 	let output_widget = null;
 	for (let widget_div of document.getElementsByClassName('widget')) {
-		let names = widget_div.getElementsByClassName('name');
+		let names = widget_div.getElementsByClassName('widget-name');
 		console.assert(names.length <= 1, 'multiple name inputs for widget');
 		let name = names.length > 0 ? names[0].value : null;
 		let func = widget_div.dataset.func;
@@ -595,16 +612,32 @@ function get_shader_source() {
 		show_error('output color should have type vec3, but it has type ' + output.type);
 		return null;
 	}
-	state.add_code(`return ${output.code};\n`)
+	state.add_code(`return ${output.code};\n`);
 	let code = state.get_code();
 	console.log(code);
 	return code;
+}
+
+function update_widget_choices() {
+	let search_term = widget_search.value.toLowerCase();
+	let choices = widget_choices.getElementsByClassName('widget-choice');
+	widget_ids_sorted_by_name.forEach(function (id, i) {
+		let name = widget_info[id].name;
+		let choice = choices[i];
+		let shown = name.toLowerCase().indexOf(search_term) !== -1;
+		if (id === 'output') {
+			shown = false;
+		}
+		choice.style.display = shown ? 'block' : 'none';
+	});
 }
 
 function startup() {
 	page = document.getElementById('page');
 	canvas = document.getElementById('canvas');
 	ui_div = document.getElementById('ui');
+	widget_choices = document.getElementById('widget-choices');
+	widget_search = document.getElementById('widget-search');
 	
 	gl = canvas.getContext('webgl');
 	if (gl === null) {
@@ -694,9 +727,23 @@ void main() {
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
 	
+	for (let id of widget_ids_sorted_by_name) {
+		let widget = widget_info[id];
+		let button = document.createElement('button');
+		button.classList.add('widget-choice');
+		button.appendChild(document.createTextNode(widget.name));
+		widget_choices.appendChild(button);
+		button.addEventListener('click', function (e) {
+			add_widget(id);
+		});
+	}
+	
 	set_up_framebuffer();
 	add_widget('output');
-	add_widget('mod');
+	update_widget_choices();
+	widget_search.addEventListener('input', function (e) {
+		update_widget_choices();
+	});
 	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);

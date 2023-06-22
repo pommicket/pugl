@@ -124,8 +124,17 @@
 		margin: 2px;
 		display: block;
 	}
-	.name {
+	.widget-name {
 		width: 10em;
+	}
+	.widget-choice {
+		width: 100%;
+		border-bottom: 0;
+		margin: 0;
+	}
+	#widget-choices {
+		margin: 0.2em;
+		border-bottom: 2px solid white;
 	}
 	</style>
 	<meta charset="utf-8">
@@ -142,63 +151,9 @@
 		</p>
 	</noscript>
 	<div id="ui">
-		Add <input type="text" placeholder="Name">
-	<!--
-		<div class="widget" data-func="output">
-			<div class="widget-title">Output color</div>
-			<div class="in"><input type="text" id="out"> <label for="out">value</label></div>
+		Add <input type="text" id="widget-search" placeholder="Search">
+		<div id="widget-choices">
 		</div>
-		<div class="widget" data-func="mix">
-			<div class="widget-title">Mix <input placeholder="name" class="name" type="text"></div>
-			<div class="in"><input type="text" id="src1"> <label for="src1">src1</label></div>
-			<div class="in"><input type="text" id="src2"> <label for="src2">src2</label></div>
-			<div class="in"><input type="text" id="mix"> <label for="mix">mix</label></div>
-			<div class="outs">
-				<div class="out">out</div>
-			</div>
-		</div>
-		<div class="widget" data-func="mix">
-			<div class="widget-title">Mix <input placeholder="name" class="name" type="text"></div>
-			<div class="in"><input type="text" id="asrc1"> <label for="asrc1">src1</label></div>
-			<div class="in"><input type="text" id="asrc2"> <label for="asrc2">src2</label></div>
-			<div class="in"><input type="text" id="amix"> <label for="amix">mix</label></div>
-			<div class="outs">
-				<div class="out">out</div>
-			</div>
-		</div>
-		<div class="widget" data-func="prev">
-			<div class="widget-title">Last frame <input placeholder="name" class="name" type="text"></div>
-			<div class="in"><input type="text" id="bpos"> <label for="bpos">pos</label></div>
-			<div class="outs">
-				<div class="out">out</div>
-			</div>
-		</div>
-		<div class="widget" data-func="mul">
-			<div class="widget-title">Multiply <input placeholder="name" class="name" type="text"></div>
-			<div class="in"><input type="text" id="a04"> <label for="a04">a</label></div>
-			<div class="in"><input type="text" id="a05"> <label for="a05">b</label></div>
-			<div class="outs">
-				<div class="out">out</div>
-			</div>
-		</div>
-		<div class="widget" data-func="square">
-			<div class="widget-title">Square selector <input placeholder="name" class="name" type="text"></div>
-			<div class="in"><input type="text" id="a02"> <label for="a02">pos</label></div>
-			<div class="in"><input type="text" id="a00"> <label for="a00">inside</label></div>
-			<div class="in"><input type="text" id="a01"> <label for="a01">outside</label></div>
-			<div class="in"><input type="text" id="a03"> <label for="a03">size</label></div>
-			<div class="outs">
-				<div class="out">out</div>
-			</div>
-		</div>
-		<div class="widget" data-func="mod">
-			<div class="widget-title">Modulo <input placeholder="name" class="name" type="text"></div>
-			<div class="in"><input type="text" id="a06"> <label for="a06">a</label></div>
-			<div class="in"><input type="text" id="a07"> <label for="a07">b</label></div>
-			<div class="outs">
-				<div class="out">out</div>
-			</div>
-		</div>-->
 	</div>
 	<canvas id="canvas">
 		<p>
