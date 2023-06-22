@@ -127,10 +127,29 @@
 	.widget-name {
 		width: 10em;
 	}
+	.widget-delete {
+		position: absolute;
+		right: 0.2em;
+		top: 0.2em;
+		border: 0;
+	}
+	.widget-delete img {
+		width: 1.5em;
+	}
+	.widget-delete:hover, .widget-delete:active {
+		background-color: transparent;
+		outline: 0;
+		filter: brightness(50%);
+	}
 	.widget-choice {
 		width: 100%;
 		border-bottom: 0;
 		margin: 0;
+	}
+	.widget-choice:focus {
+		outline: 0;
+		border: 2px solid green;
+		z-index: 10;
 	}
 	#widget-choices {
 		margin: 0.2em;

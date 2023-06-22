@@ -92,7 +92,7 @@ const widget_info = {
 	},
 	'mul': {
 		name: 'Multiply',
-		inputs: [{name: 'a', name: 'b'}],
+		inputs: [{name: 'a'}, {name: 'b'}],
 		controls: [],
 		outputs: [{name: 'out'}],
 		func: function(state, inputs) {
@@ -385,6 +385,20 @@ function add_widget(func) {
 			title.appendChild(name_input);
 		}
 		root.appendChild(title);
+	}
+	
+	if (func !== 'output') {
+		// delete button
+		let delete_button = document.createElement('button');
+		let delete_img = document.createElement('img');
+		delete_img.src = 'x.svg';
+		delete_img.alt = 'delete';
+		delete_button.appendChild(delete_img);
+		delete_button.classList.add('widget-delete');
+		delete_button.addEventListener('click', function (e) {
+			root.remove();
+		});
+		root.appendChild(delete_button);
 	}
 	
 	// inputs
