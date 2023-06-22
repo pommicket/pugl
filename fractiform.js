@@ -370,6 +370,7 @@ function add_widget(func) {
 		root.appendChild(title);
 	}
 	
+	// inputs
 	for (let input of info.inputs) {
 		let container = document.createElement('div');
 		container.classList.add('in');
@@ -382,6 +383,21 @@ function add_widget(func) {
 		container.appendChild(input_element);
 		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
+		root.appendChild(container);
+	}
+	
+	{ // outputs
+		let container = document.createElement('div');
+		container.classList.add('outs');
+		info.outputs.forEach(function (output, i) {
+			if (i > 0) {
+				container.appendChild(document.createTextNode(', '));
+			}
+			let span = document.createElement('span');
+			span.classList.add('out');
+			span.appendChild(document.createTextNode(output.name));
+			container.appendChild(span);
+		});
 		root.appendChild(container);
 	}
 	
