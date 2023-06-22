@@ -57,9 +57,14 @@ const widget_info = {
 				return {error: 'bad types for mix: ' + [src1, src2, mix].map(function (x) { return x.type; }).join(', ')};
 			}
 			
+			let mix_code = mix.code;
+			if (inputs['clamp mix']) {
+				mix_code = `clamp(${mix_code},0.0,1.0)`;
+			}
+			
 			let type = src1.type;
 			let v = state.next_variable();
-			state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix.code});\n`);
+			state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix_code});\n`);
 			return {out: {type: type, code: v}};
 		},
 	},
@@ -68,7 +73,7 @@ const widget_info = {
 		inputs: [{name: 'pos'}],
 		controls: [
 			{name: 'wrap', type: 'checkbox'},
-			{name: 'blend', type: 'select:linear|nearest'},
+			{name: 'sample method', type: 'select:linear|nearest'},
 		],
 		outputs: [{name: 'out'}],
 		func: function(state, inputs) {
@@ -76,8 +81,22 @@ const widget_info = {
 			if (pos.type !== 'vec2') {
 				return {error: 'bad type for sample position: ' + pos.type};
 			}
+			let vpos = state.next_variable();
+			state.add_code(`vec2 ${vpos} = ${pos.code};\n`);
+			if (inputs.wrap) {
+				state.add_code(`${vpos} = mod(${vpos}, 1.0);\n`);
+			}
+			switch (inputs['sample method']) {
+			case 'linear': break;
+			case 'nearest':
+				state.add_code(`${vpos} = floor(0.5 + ${vpos} * u_texture_size) * (1.0 / u_texture_size);\n`);
+				break;
+			default:
+				console.error('bad sample method:', inputs['sample method']);
+				break;
+			}
 			let v = state.next_variable();
-			state.add_code(`vec3 ${v} = texture2D(u_texture, ${pos.code}).xyz;\n`);
+			state.add_code(`vec3 ${v} = texture2D(u_texture, ${vpos}).xyz;\n`);
 			return {out: {type: 'vec3', code: v}};
 		},
 	},
@@ -250,6 +269,7 @@ precision highp float;
 
 uniform sampler2D u_texture;
 uniform float u_time;
+uniform vec2 u_texture_size;
 varying vec2 pos;
 
 vec3 get_color() {
@@ -417,6 +437,40 @@ function add_widget(func) {
 		root.appendChild(container);
 	}
 	
+	// controls
+	for (let control of info.controls) {
+		let container = document.createElement('div');
+		container.classList.add('control');
+		let type = control.type;
+		let input;
+		if (type === 'checkbox') {
+			input = document.createElement('input');
+			input.type = 'checkbox';
+		} else if (type.startsWith('select:')) {
+			let options = type.substr('select:'.length).split('|');
+			
+			input = document.createElement('select');
+			for (let opt of options) {
+				let option = document.createElement('option');
+				option.appendChild(document.createTextNode(opt));
+				option.value = opt;
+				input.appendChild(option);
+			}
+		} else {
+			console.error('bad control type');
+		}
+		
+		input.id = 'gen-control-' + (++html_id);
+		input.classList.add('control-input');
+		let label = document.createElement('label');
+		label.htmlFor = input.id;
+		label.appendChild(document.createTextNode(control.name));
+		container.appendChild(input);
+		container.appendChild(document.createTextNode(' '));
+		container.appendChild(label);
+		root.appendChild(container);
+	}
+	
 	{ // outputs
 		let container = document.createElement('div');
 		container.classList.add('outs');
@@ -572,6 +626,9 @@ class GLSLGenerationState {
 				}
 				inputs[input] = value;	
 			}
+			for (let control in widget.controls) {
+				inputs[control] = widget.controls[control];
+			}
 			let outputs = info.func(this, inputs);
 			widget.outputs = outputs;
 		}
@@ -596,13 +653,26 @@ function get_shader_source() {
 		let name = names.length > 0 ? names[0].value : null;
 		let func = widget_div.dataset.func;
 		let inputs = {};
+		let controls = {};
 		for (let input of widget_div.getElementsByClassName('in')) {
 			let name = input.getElementsByTagName('label')[0].innerText;
 			inputs[name] = input.getElementsByTagName('input')[0].value;
 		}
+		for (let control of widget_div.getElementsByClassName('control')) {
+			let name = control.getElementsByTagName('label')[0].innerText;
+			let input = control.getElementsByClassName('control-input')[0];
+			let value;
+			if (input.tagName === 'INPUT' && input.type == 'checkbox') {
+				value = input.checked;
+			} else {
+				value = input.value;
+			}
+			controls[name] = value;
+		}
 		let widget = {
 			func: func,
 			inputs: inputs,
+			controls: controls,
 		};
 		if (name !== null) {
 			widgets['-' + name] = widget;
@@ -834,6 +904,7 @@ function perform_step() {
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.uniform1i(gl.getUniformLocation(program_main, 'u_texture'), 0);
 	gl.uniform1f(gl.getUniformLocation(program_main, 'u_time'), current_time % 3600);
+	gl.uniform2f(gl.getUniformLocation(program_main, 'u_texture_size'), width, height);
 	
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	let v_pos = gl.getAttribLocation(program_main, 'v_pos');
