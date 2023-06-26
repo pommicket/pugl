@@ -2,10 +2,6 @@
 
 /*
 TODO:
-- prev controls:
-    - wrap?
-    - filter
-- detect circular dependencies
 - detect duplicate widget names
 */
 
@@ -494,6 +490,7 @@ class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
 		this.code = [];
+		this.computing_inputs = {};
 		this.variable = 0;
 	}
 	
@@ -607,11 +604,19 @@ class GLSLGenerationState {
 		if (dot !== -1) {
 			input = input.substr(0, dot);
 		}
-		let widget = this.widgets['-' + input];
+		let esc_input = '-' + input; // prevent wacky stuff if input is an Object built-in
+		let widget = this.widgets[esc_input];
 		if (widget === undefined) {
 			return {error: 'cannot find ' + input};
 		}
-		return this.compute_widget_output(widget, field);
+		
+		if (esc_input in this.computing_inputs) {
+			return {error: 'circular dependency at ' + input};
+		}
+		this.computing_inputs[esc_input] = true;
+		let value = this.compute_widget_output(widget, field);
+		delete this.computing_inputs[esc_input];
+		return value;
 	}
 	
 	compute_widget_output(widget, output) {
