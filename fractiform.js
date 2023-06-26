@@ -3,6 +3,7 @@
 /*
 TODO:
 - detect duplicate widget names
+- forbid . , ; in widget names
 */
 
 let gl;
@@ -649,9 +650,8 @@ class GLSLGenerationState {
 	}
 }
 
-function get_shader_source() {
+function parse_widgets() {
 	let widgets = {};
-	let output_widget = null;
 	for (let widget_div of document.getElementsByClassName('widget')) {
 		let names = widget_div.getElementsByClassName('widget-name');
 		console.assert(names.length <= 1, 'multiple name inputs for widget');
@@ -683,12 +683,43 @@ function get_shader_source() {
 			widgets['-' + name] = widget;
 		}
 		if (func === 'output') {
-			output_widget = widget;
+			widgets.output = widget;
 		}
 	}
-	
+	return widgets;
+}
+
+function export_widgets(widgets) {
+	let data = [];
+	for (let name in widgets) {
+		let widget = widgets[name];
+		data.push('name:');
+		data.push(name);
+		data.push(';');
+		for (let input in widget.inputs) {
+			data.push(input);
+			data.push(':');
+			data.push(widget.inputs[input]);
+			data.push(';');
+		}
+		for (let control in widget.controls) {
+			data.push(control);
+			data.push(':');
+			data.push(widget.controls[control]);
+			data.push(';');
+		}
+		data.pop(); // remove terminal separator
+		data.push(';;');
+	}
+	data.pop(); // remove terminal separator
+	return data.join('');
+}
+
+function get_shader_source() {
+	let widgets = parse_widgets();
+	let output_widget = widgets.output;
 	let state = new GLSLGenerationState(widgets);
-	if (output_widget === null) {
+	if (output_widget === undefined) {
 		show_error('no output color');
 		return null;
 	}
@@ -704,6 +735,7 @@ function get_shader_source() {
 	state.add_code(`return ${output.code};\n`);
 	let code = state.get_code();
 	console.log(code);
+	console.log(export_widgets(widgets));
 	return code;
 }
 
