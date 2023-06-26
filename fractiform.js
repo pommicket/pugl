@@ -2,8 +2,13 @@
 
 /*
 TODO:
+- input/control name shouldn't correspond to label text
 - detect duplicate widget names
-- forbid . , ; in widget names
+- forbid . , ; : in widget names
+- widgets:
+	- comparator
+	- circle
+	- rotate 2D
 */
 
 let gl;
@@ -693,16 +698,20 @@ function export_widgets(widgets) {
 	let data = [];
 	for (let name in widgets) {
 		let widget = widgets[name];
-		data.push('name:');
+		data.push(widget.func);
+		data.push(';');
+		data.push('n:');
 		data.push(name);
 		data.push(';');
 		for (let input in widget.inputs) {
+			data.push('i');
 			data.push(input);
 			data.push(':');
 			data.push(widget.inputs[input]);
 			data.push(';');
 		}
 		for (let control in widget.controls) {
+			data.push('c');
 			data.push(control);
 			data.push(':');
 			data.push(widget.controls[control]);
@@ -713,6 +722,46 @@ function export_widgets(widgets) {
 	}
 	data.pop(); // remove terminal separator
 	return data.join('');
+}
+
+function import_widgets(string) {
+	let widgets = {};
+	for (let widget_str of string.split(';;')) {
+		let widget = {};
+		let name = null;
+		let parts = widget_str.split(';');
+		let func = parts[0];
+		let info = widget_info[func];
+		parts.splice(0, 1);
+		
+		for (let part of parts) {
+			let kv = part.split(':');
+			if (kv.length !== 2) {
+				return {error: `bad key-value pair (kv count ${kv.length})`};
+			}
+			let type = kv[0][0];
+			let key = kv[0].substr(1);
+			let value = kv[1];
+			if (type === 'n') {
+				// name
+				name = key;
+			} else if (type === 'i') {
+				// input
+				widget.inputs[key] = value;
+			} else if (type === 'c') {
+				// control
+				widget.controls[key] = value;
+			} else {
+				return {error: `bad widget part type: '${type}'`};
+			}
+		}
+		
+		if (name === null) {
+			return {error: 'widget has no name'};
+		}
+		widgets[name] = widget;
+	}
+	return widgets;
 }
 
 function get_shader_source() {
