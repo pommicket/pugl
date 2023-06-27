@@ -37,13 +37,18 @@ let width = 1920, height = 1920;
 const widget_info = {
 	'mix': {
 		name: 'Mix',
+		tooltip: 'weighted average of two inputs',
 		inputs: [
 			{name: 'source 1', id: 'src1'},
 			{name: 'source 2', id: 'src2'},
 			{name: 'mix', id: 'mix'},
 		],
-		controls: [{name: 'clamp mix', id: 'clamp', type: 'checkbox'}],
-		outputs: [{name: 'out', id: 'out'}],
+		controls: [
+			{name: 'clamp mix', id: 'clamp', type: 'checkbox', tooltip: 'clamp the mix input to the [0, 1] range'}
+		],
+		outputs: [
+			{name: 'out', id: 'out', tooltip: 'mix × (source 1) + (1 - mix) × (source 2)'}
+		],
 		func: function(state, inputs) {
 			let src1 = inputs.src1;
 			let src2 = inputs.src2;
@@ -71,12 +76,13 @@ const widget_info = {
 	},
 	'prev': {
 		name: 'Last frame',
-		inputs: [{name: 'pos', id: 'pos'}],
+		tooltip: 'sample from the previous frame',
+		inputs: [{name: 'pos', id: 'pos', tooltip: 'position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)'}],
 		controls: [
-			{name: 'wrap mode', id: 'wrap', type: 'checkbox'},
-			{name: 'sample mode', id: 'sample', type: 'select:linear|nearest'},
+			{name: 'wrap mode', id: 'wrap', type: 'select:clamp|wrap', tooltip: 'how to deal with the input components if they go outside [0, 1]'},
+			{name: 'sample mode', id: 'sample', type: 'select:linear|nearest', tooltip: 'how positions in between pixels should be sampled'},
 		],
-		outputs: [{name: 'out', id: 'out'}],
+		outputs: [{name: 'out', id: 'out', tooltip: 'the color from the previous frame'}],
 		func: function(state, inputs) {
 			let pos = inputs.pos;
 			if (pos.type !== 'vec2') {
@@ -84,16 +90,25 @@ const widget_info = {
 			}
 			let vpos = state.next_variable();
 			state.add_code(`vec2 ${vpos} = ${pos.code};\n`);
-			if (inputs.wrap) {
+			switch (inputs.wrap) {
+			case 'wrap':
 				state.add_code(`${vpos} = mod(${vpos}, 1.0);\n`);
+				break;
+			case 'clamp':
+				state.add_code(`${vpos} = clamp(${vpos}, 0.0, 1.0);\n`);
+				break;
+			default:
+				console.error('bad wrap mode:', inputs.wrap);
+				break;
 			}
+			
 			switch (inputs.sample) {
 			case 'linear': break;
 			case 'nearest':
 				state.add_code(`${vpos} = floor(0.5 + ${vpos} * u_texture_size) * (1.0 / u_texture_size);\n`);
 				break;
 			default:
-				console.error('bad sample method:', inputs['sample method']);
+				console.error('bad sample method:', inputs.sample);
 				break;
 			}
 			let v = state.next_variable();
@@ -112,6 +127,7 @@ const widget_info = {
 	},
 	'mul': {
 		name: 'Multiply',
+		tooltip: 'multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors',
 		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
@@ -129,6 +145,7 @@ const widget_info = {
 	},
 	'mod': {
 		name: 'Modulo',
+		tooltip: 'wrap a value at a certain limit',
 		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
@@ -147,11 +164,12 @@ const widget_info = {
 	},
 	'square': {
 		name: 'Square',
+		tooltip: 'select between two inputs depending on whether a point lies within a square (or cube in 3D)',
 		inputs: [
-			{name: 'pos', id: 'pos'},
-			{name: 'inside', id: 'inside'},
-			{name: 'outside', id: 'outside'},
-			{name: 'size', id: 'size'}
+			{name: 'pos', id: 'pos', tooltip: 'point to test'},
+			{name: 'inside', id: 'inside', tooltip: 'source to use if pos lies inside the square'},
+			{name: 'outside', id: 'outside', tooltip: 'source to use if pos lies outside the square'},
+			{name: 'size', id: 'size', tooltip: 'radius of the square'},
 		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
@@ -403,6 +421,9 @@ function add_widget(func) {
 	{ // title
 		let title = document.createElement('div');
 		title.classList.add('widget-title');
+		if ('tooltip' in info) {
+			title.title = info.tooltip;
+		}
 		title.appendChild(document.createTextNode(info.name));
 		if (func !== 'output') {
 			let name_input = document.createElement('input');
@@ -428,7 +449,7 @@ function add_widget(func) {
 	}
 	
 	// inputs
-	for (let input of info.inputs) {
+	info.inputs.forEach(function (input) {
 		let container = document.createElement('div');
 		container.classList.add('in');
 		console.assert('id' in input, 'input missing ID', input);
@@ -438,12 +459,15 @@ function add_widget(func) {
 		input_element.id = 'gen-input-' + (++html_id);
 		let label = document.createElement('label');
 		label.htmlFor = input_element.id;
+		if ('tooltip' in input) {
+			label.title = input.tooltip;
+		}
 		label.appendChild(document.createTextNode(input.name));
 		container.appendChild(input_element);
 		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
 		root.appendChild(container);
-	}
+	});
 	
 	// controls
 	for (let control of info.controls) {
@@ -475,6 +499,9 @@ function add_widget(func) {
 		let label = document.createElement('label');
 		label.htmlFor = input.id;
 		label.appendChild(document.createTextNode(control.name));
+		if ('tooltip' in control) {
+			label.title = control.tooltip;
+		}
 		container.appendChild(input);
 		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
@@ -491,6 +518,9 @@ function add_widget(func) {
 			let span = document.createElement('span');
 			span.classList.add('out');
 			span.appendChild(document.createTextNode(output.name));
+			if ('tooltip' in output) {
+				span.title = output.tooltip;
+			}
 			container.appendChild(span);
 		});
 		root.appendChild(container);
@@ -905,10 +935,14 @@ void main() {
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
 	
+	// add widget buttons
 	for (let id of widget_ids_sorted_by_name) {
 		let widget = widget_info[id];
 		let button = document.createElement('button');
 		button.classList.add('widget-choice');
+		if ('tooltip' in widget) {
+			button.title = widget.tooltip;
+		}
 		button.appendChild(document.createTextNode(widget.name));
 		widget_choices.appendChild(button);
 		button.addEventListener('click', function (e) {
