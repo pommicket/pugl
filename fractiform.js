@@ -31,6 +31,7 @@ let shift_key = false, ctrl_key = false;
 let html_id = 0;
 let widget_choices;
 let widget_search;
+let widgets_container;
 
 let width = 1920, height = 1920;
 
@@ -237,16 +238,16 @@ function rgba_hex_to_float(hex) {
 	
 	if (hex.length === 7 || hex.length === 9) {
 		// #rrggbb or #rrggbbaa
-		r = parseInt(hex.substr(1, 2), 16) / 255;
-		g = parseInt(hex.substr(3, 2), 16) / 255;
-		b = parseInt(hex.substr(5, 2), 16) / 255;
-		a = hex.length === 7 ? 1 : parseInt(hex.substr(7, 2), 16) / 255;
+		r = parseInt(hex.substring(1, 3), 16) / 255;
+		g = parseInt(hex.substring(3, 5), 16) / 255;
+		b = parseInt(hex.substring(5, 7), 16) / 255;
+		a = hex.length === 7 ? 1 : parseInt(hex.substring(7, 9), 16) / 255;
 	} else if (hex.length === 4 || hex.length === 5) {
 		// #rgb or #rgba
-		r = parseInt(hex.substr(1, 1), 16) / 15;
-		g = parseInt(hex.substr(2, 1), 16) / 15;
-		b = parseInt(hex.substr(3, 1), 16) / 15;
-		a = hex.length === 4 ? 1 : parseInt(hex.substr(4, 1), 16) / 15;
+		r = parseInt(hex[1], 16) / 15;
+		g = parseInt(hex[2], 16) / 15;
+		b = parseInt(hex[3], 16) / 15;
+		a = hex.length === 4 ? 1 : parseInt(hex[4], 16) / 15;
 	}
 
 	if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
@@ -481,7 +482,7 @@ function add_widget(func) {
 			input = document.createElement('input');
 			input.type = 'checkbox';
 		} else if (type.startsWith('select:')) {
-			let options = type.substr('select:'.length).split('|');
+			let options = type.substring('select:'.length).split('|');
 			
 			input = document.createElement('select');
 			for (let opt of options) {
@@ -526,8 +527,8 @@ function add_widget(func) {
 		root.appendChild(container);
 	}
 	
-	ui_div.appendChild(root);
-	return true;
+	widgets_container.appendChild(root);
+	return root;
 }
 
 class GLSLGenerationState {
@@ -610,7 +611,7 @@ class GLSLGenerationState {
 		}
 		
 		let dot = input.lastIndexOf('.');
-		let field = dot === -1 ? 'out' : input.substr(dot + 1);
+		let field = dot === -1 ? 'out' : input.substring(dot + 1);
 		
 		if (field.length === 0) {
 			return {error: 'inputs should not end in .'};
@@ -618,7 +619,7 @@ class GLSLGenerationState {
 		
 		if (field.length >= 1 && field.length <= 4 && field.split('').every(function (c) { return 'xyzw'.indexOf(c) !== -1 })) {
 			// swizzle
-			let vector = this.compute_input(input.substr(0, dot));
+			let vector = this.compute_input(input.substring(0, dot));
 			let base = type_base_type(vector.type);
 			let count = type_component_count(vector.type);
 			
@@ -646,7 +647,7 @@ class GLSLGenerationState {
 		}
 		
 		if (dot !== -1) {
-			input = input.substr(0, dot);
+			input = input.substring(0, dot);
 		}
 		let esc_input = '-' + input; // prevent wacky stuff if input is an Object built-in
 		let widget = this.widgets[esc_input];
@@ -732,7 +733,8 @@ function parse_widgets() {
 	return widgets;
 }
 
-function export_widgets(widgets) {
+function export_widgets() {
+	let widgets = parse_widgets();
 	let data = [];
 	for (let name in widgets) {
 		let widget = widgets[name];
@@ -763,43 +765,89 @@ function export_widgets(widgets) {
 }
 
 function import_widgets(string) {
-	let widgets = {};
-	for (let widget_str of string.split(';;')) {
-		let widget = {};
-		let name = null;
-		let parts = widget_str.split(';');
-		let func = parts[0];
-		let info = widget_info[func];
-		parts.splice(0, 1);
-		
-		for (let part of parts) {
-			let kv = part.split(':');
-			if (kv.length !== 2) {
-				return {error: `bad key-value pair (kv count ${kv.length})`};
+	let widgets = [];
+	console.log(string);
+	if (string) {
+		for (let widget_str of string.split(';;')) {
+			let parts = widget_str.split(';');
+			let func = parts[0];
+			let widget = {name: null, func: func, inputs: {}, controls: {}};
+			let info = widget_info[func];
+			parts.splice(0, 1);
+			for (let part of parts) {
+				let kv = part.split(':');
+				if (kv.length !== 2) {
+					return {error: `bad key-value pair (kv count ${kv.length})`};
+				}
+				let type = kv[0][0];
+				let key = kv[0].substring(1);
+				let value = kv[1];
+				if (type === 'n') {
+					// name
+					widget.name = value;
+				} else if (type === 'i') {
+					// input
+					widget.inputs[key] = value;
+				} else if (type === 'c') {
+					// control
+					widget.controls[key] = value;
+				} else {
+					return {error: `bad widget part type: '${type}'`};
+				}
 			}
-			let type = kv[0][0];
-			let key = kv[0].substr(1);
-			let value = kv[1];
-			if (type === 'n') {
-				// name
-				name = key;
-			} else if (type === 'i') {
-				// input
-				widget.inputs[key] = value;
-			} else if (type === 'c') {
-				// control
-				widget.controls[key] = value;
-			} else {
-				return {error: `bad widget part type: '${type}'`};
+			
+			if (widget.name === null) {
+				return {error: 'widget has no name'};
 			}
+			widgets.push(widget);
 		}
-		
-		if (name === null) {
-			return {error: 'widget has no name'};
-		}
-		widgets[name] = widget;
+	} else {
+		widgets = [
+			{
+				name: 'output',
+				func: 'output',
+				inputs: {},
+				controls: {},
+			}
+		];
 	}
-	return widgets;
+	
+	widgets_container.innerHTML = '';
+	widgets.forEach(function (widget) {
+		let name = widget.name;
+		let element = add_widget(widget.func);
+		if (name.startsWith('-')) {
+			element.getElementsByClassName('widget-name')[0].value = name.substring(1);
+		}
+		function assign_value(container, value) {
+			let element = (container.getElementsByTagName('input') || container.getElementsByTagName('select'))[0];
+			if (element.type === 'checkbox') {
+				element.checked = value === 'true' || value === '1' ? 'checked' : '';
+			} else {
+				element.value = value;
+			}
+		}
+		for (let input in widget.inputs) {
+			let container = Array.from(element.getElementsByClassName('in')).find(
+				function (e) { return e.dataset.id === input; }
+			);
+			assign_value(container, widget.inputs[input]);
+		}
+		for (let control in widget.controls) {
+			let container = Array.from(element.getElementsByClassName('control')).find(
+				function (e) { return e.dataset.id === control; }
+			);
+			assign_value(container, widget.controls[control]);
+		}
+	});
+}
+
+function import_widgets_from_local_storage() {
+	import_widgets(localStorage.getItem('widgets'));
+}
+
+function export_widgets_to_local_storage() {
+	localStorage.setItem('widgets', export_widgets());
 }
 
 function get_shader_source() {
@@ -822,7 +870,7 @@ function get_shader_source() {
 	state.add_code(`return ${output.code};\n`);
 	let code = state.get_code();
 	console.log(code);
-	console.log(export_widgets(widgets));
+	export_widgets_to_local_storage();
 	return code;
 }
 
@@ -846,6 +894,7 @@ function startup() {
 	ui_div = document.getElementById('ui');
 	widget_choices = document.getElementById('widget-choices');
 	widget_search = document.getElementById('widget-search');
+	widgets_container = document.getElementById('widgets-container');
 	
 	gl = canvas.getContext('webgl');
 	if (gl === null) {
@@ -951,7 +1000,6 @@ void main() {
 	}
 	
 	set_up_framebuffer();
-	add_widget('output');
 	update_widget_choices();
 	widget_search.addEventListener('input', function (e) {
 		update_widget_choices();
@@ -962,6 +1010,8 @@ void main() {
 	window.addEventListener('keyup', on_key_release);
 	window.addEventListener('mousemove', on_mouse_move);
 	window.addEventListener('click', on_click);
+	
+	import_widgets_from_local_storage();
 }
 
 function frame(time) {
