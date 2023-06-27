@@ -2,7 +2,6 @@
 
 /*
 TODO:
-- input/control name shouldn't correspond to label text
 - detect duplicate widget names
 - forbid . , ; : in widget names
 - widgets:
@@ -39,12 +38,12 @@ const widget_info = {
 	'mix': {
 		name: 'Mix',
 		inputs: [
-			{name: 'src1'},
-			{name: 'src2'},
-			{name: 'mix'},
+			{name: 'source 1', id: 'src1'},
+			{name: 'source 2', id: 'src2'},
+			{name: 'mix', id: 'mix'},
 		],
-		controls: [{name: 'clamp mix', type: 'checkbox'}],
-		outputs: [{name: 'out'}],
+		controls: [{name: 'clamp mix', id: 'clamp', type: 'checkbox'}],
+		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let src1 = inputs.src1;
 			let src2 = inputs.src2;
@@ -60,7 +59,7 @@ const widget_info = {
 			}
 			
 			let mix_code = mix.code;
-			if (inputs['clamp mix']) {
+			if (inputs.clamp) {
 				mix_code = `clamp(${mix_code},0.0,1.0)`;
 			}
 			
@@ -72,12 +71,12 @@ const widget_info = {
 	},
 	'prev': {
 		name: 'Last frame',
-		inputs: [{name: 'pos'}],
+		inputs: [{name: 'pos', id: 'pos'}],
 		controls: [
-			{name: 'wrap', type: 'checkbox'},
-			{name: 'sample method', type: 'select:linear|nearest'},
+			{name: 'wrap mode', id: 'wrap', type: 'checkbox'},
+			{name: 'sample mode', id: 'sample', type: 'select:linear|nearest'},
 		],
-		outputs: [{name: 'out'}],
+		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let pos = inputs.pos;
 			if (pos.type !== 'vec2') {
@@ -88,7 +87,7 @@ const widget_info = {
 			if (inputs.wrap) {
 				state.add_code(`${vpos} = mod(${vpos}, 1.0);\n`);
 			}
-			switch (inputs['sample method']) {
+			switch (inputs.sample) {
 			case 'linear': break;
 			case 'nearest':
 				state.add_code(`${vpos} = floor(0.5 + ${vpos} * u_texture_size) * (1.0 / u_texture_size);\n`);
@@ -104,7 +103,7 @@ const widget_info = {
 	},
 	'output': {
 		name: 'Output color',
-		inputs: [{name: 'value'}],
+		inputs: [{name: 'value', id: 'value'}],
 		controls: [],
 		outputs: [],
 		func: function(state, inputs) {
@@ -113,9 +112,9 @@ const widget_info = {
 	},
 	'mul': {
 		name: 'Multiply',
-		inputs: [{name: 'a'}, {name: 'b'}],
+		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
 		controls: [],
-		outputs: [{name: 'out'}],
+		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
@@ -130,9 +129,9 @@ const widget_info = {
 	},
 	'mod': {
 		name: 'Modulo',
-		inputs: [{name: 'a'}, {name: 'b'}],
+		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
 		controls: [],
-		outputs: [{name: 'out', type: 'x'}],
+		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
@@ -148,9 +147,14 @@ const widget_info = {
 	},
 	'square': {
 		name: 'Square',
-		inputs: [{name: 'pos'}, {name: 'inside'}, {name: 'outside'}, {name: 'size'}],
+		inputs: [
+			{name: 'pos', id: 'pos'},
+			{name: 'inside', id: 'inside'},
+			{name: 'outside', id: 'outside'},
+			{name: 'size', id: 'size'}
+		],
 		controls: [],
-		outputs: [{name: 'out'}],
+		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let pos = inputs.pos;
 			let inside = inputs.inside;
@@ -427,6 +431,8 @@ function add_widget(func) {
 	for (let input of info.inputs) {
 		let container = document.createElement('div');
 		container.classList.add('in');
+		console.assert('id' in input, 'input missing ID', input);
+		container.dataset.id = input.id;
 		let input_element = document.createElement('input');
 		input_element.type = 'text';
 		input_element.id = 'gen-input-' + (++html_id);
@@ -443,6 +449,8 @@ function add_widget(func) {
 	for (let control of info.controls) {
 		let container = document.createElement('div');
 		container.classList.add('control');
+		console.assert('id' in control, 'control missing ID', control);
+		container.dataset.id = control.id;
 		let type = control.type;
 		let input;
 		if (type === 'checkbox') {
@@ -665,11 +673,11 @@ function parse_widgets() {
 		let inputs = {};
 		let controls = {};
 		for (let input of widget_div.getElementsByClassName('in')) {
-			let name = input.getElementsByTagName('label')[0].innerText;
-			inputs[name] = input.getElementsByTagName('input')[0].value;
+			let id = input.dataset.id;
+			inputs[id] = input.getElementsByTagName('input')[0].value;
 		}
 		for (let control of widget_div.getElementsByClassName('control')) {
-			let name = control.getElementsByTagName('label')[0].innerText;
+			let id = control.dataset.id;
 			let input = control.getElementsByClassName('control-input')[0];
 			let value;
 			if (input.tagName === 'INPUT' && input.type == 'checkbox') {
@@ -677,7 +685,7 @@ function parse_widgets() {
 			} else {
 				value = input.value;
 			}
-			controls[name] = value;
+			controls[id] = value;
 		}
 		let widget = {
 			func: func,
