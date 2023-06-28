@@ -2,12 +2,14 @@
 
 /*
 TODO:
+- default input values
 - detect duplicate widget names
-- forbid . , ; : in widget names
+- automatic widget names
+- forbid .,;|/\:(){}[]+-<>'"`~?!#%^&* in widget names
 - widgets:
 	- comparator
-	- circle
 	- rotate 2D
+- show which widget generated an error
 */
 
 let gl;
@@ -126,6 +128,24 @@ const widget_info = {
 			return {out: inputs.value};
 		}
 	},
+	'add': {
+		name: 'Add',
+		tooltip: 'add two numbers or vectors',
+		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
+		controls: [],
+		outputs: [{name: 'out', id: 'out'}],
+		func: function(state, inputs) {
+			let a = inputs.a;
+			let b = inputs.b;
+			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
+				return {error: `cannot add types ${a.type} and ${b.type}`};
+			}
+			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			let v = state.next_variable();
+			state.add_code(`${output_type} ${v} = ${a.code} + ${b.code};\n`);
+			return {out: {code: v, type: output_type}};
+		},
+	},
 	'mul': {
 		name: 'Multiply',
 		tooltip: 'multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors',
@@ -141,6 +161,24 @@ const widget_info = {
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
+			return {out: {code: v, type: output_type}};
+		},
+	},
+	'pow': {
+		name: 'Power',
+		tooltip: 'take one number to the power of another',
+		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
+		controls: [],
+		outputs: [{name: 'out', id: 'out'}],
+		func: function(state, inputs) {
+			let a = inputs.a;
+			let b = inputs.b;
+			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
+				return {error: `cannot type ${a.type} to the power of type ${b.type}`};
+			}
+			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			let v = state.next_variable();
+			state.add_code(`${output_type} ${v} = pow(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
 			return {out: {code: v, type: output_type}};
 		},
 	},
@@ -210,6 +248,110 @@ const widget_info = {
 			state.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
 			return {out: {code: v, type: output_type}};
 		},
+	},
+	'circle': {
+		name: 'Circle',
+		tooltip: 'select between two inputs depending on whether a point lies within a circle (or sphere in 3D)',
+		inputs: [
+			{name: 'pos', id: 'pos', tooltip: 'point to test'},
+			{name: 'inside', id: 'inside', tooltip: 'source to use if pos lies inside the circle'},
+			{name: 'outside', id: 'outside', tooltip: 'source to use if pos lies outside the circle'},
+			{name: 'size', id: 'size', tooltip: 'radius of the circle'},
+		],
+		controls: [],
+		outputs: [{name: 'out', id: 'out'}],
+		func: function(state, inputs) {
+			let pos = inputs.pos;
+			let inside = inputs.inside;
+			let outside = inputs.outside;
+			let size = inputs.size;
+			if (type_base_type(pos.type) !== 'float') {
+				return {error: 'bad type for input pos: ' + pos.type};
+			}
+			let output_type = inside.type;
+			if (output_type !== outside.type) {
+				return {error: `selector input types ${inside.type} and ${outside.type} do not match`};
+			}
+			if (size.type !== 'float' && size.type !== pos.type) {
+				return {error: `bad type for circle size: ${size.type}`};
+			}
+			let a = state.next_variable();
+			let v = state.next_variable();
+			state.add_code(`${pos.type} ${a} = ${pos.code} / ${size.code};\n`);
+			state.add_code(`${output_type} ${v} = dot(${a}, ${a}) < 1.0 ? ${inside.code} : ${outside.code};\n`);
+			return {out: {code: v, type: output_type}};
+		},
+	},
+	'compare': {
+		name: 'Comparator',
+		tooltip: 'select between two inputs depending on a comparison between two values',
+		inputs: [
+			{name: 'compare 1', id: 'cmp1', tooltip: 'input to compare against "Compare 2"'},
+			{name: 'compare 2', id: 'cmp2', tooltip: 'input to compare against "Compare 1"'},
+			{name: 'if less', id: 'less', tooltip: 'value to output if "Compare 1" < "Compare 2"'},
+			{name: 'if greater', id: 'greater', tooltip: 'value to output if "Compare 1" ≥ "Compare 2"'},
+		],
+		controls: [],
+		outputs: [{name: 'out', id: 'out'}],
+		func: function(state, inputs) {
+			let cmp1 = inputs.cmp1;
+			let cmp2 = inputs.cmp2;
+			let less = inputs.less;
+			let greater = inputs.greater;
+			if (cmp1.type !== 'float') {
+				return {error: 'bad type for "Compare 1": ' + pos.type};
+			}
+			if (cmp2.type !== 'float') {
+				return {error: 'bad type for "Compare 2": ' + pos.type};
+			}
+			let type = less.type;
+			if (type !== greater.type) {
+				return {error: `selector types do not match (${less.type} and ${greater.type})`};
+			}
+			let v = state.next_variable();
+			state.add_code(`${type} ${v} = ${cmp1.code} < ${cmp2.code} ? ${less.code} : ${greater.code};\n`);
+			return {out: {code: v, type: type}};
+		}
+	},
+	'sin': {
+		name: 'Sine wave',
+		tooltip: 'a wave based on the sin function',
+		inputs: [
+			{name: 't', id: 't', tooltip: 'position in the wave'},
+			{name: 'period', id: 'period', tooltip: 'period of the wave'},
+			{name: 'amplitude', id: 'amp', tooltip: 'amplitude (maximum value) of the wave'},
+			{name: 'phase', id: 'phase', tooltip: 'phase of the wave (0.5 = phase by ½ period)'},
+		],
+		controls: [
+			{name: 'non-negative', id: 'nonneg', tooltip: 'make the wave go from 0 to amp, rather than -amp to +amp', type: 'checkbox'},
+		],
+		outputs: [{name: 'out', id: 'out'}],
+		func: function (state, inputs) {
+			let t = inputs.t;
+			let period = inputs.period;
+			let amplitude = inputs.amp;
+			let phase = inputs.phase;
+			if (type_base_type(t.type) !== 'float') {
+				return {error: 'bad type for t: ' + t.type};
+			}
+			if (period.type !== 'float' && period.type !== t.type) {
+				return {error: 'bad type for period: ' + period.type};
+			}
+			if (amplitude.type !== 'float' && amplitude.type !== t.type) {
+				return {error: 'bad type for amplitude: ' + amplitude.type};
+			}
+			if (phase.type !== 'float' && phase.type !== t.type) {
+				return {error: 'bad type for phase: ' + phase.type};
+			}
+			
+			let v = state.next_variable();
+			state.add_code(`${t.type} ${v} = sin((${t.code} / ${period.code} - ${phase.code}) * 6.2831853);\n`);
+			if (inputs.nonneg) {
+				state.add_code(`${v} = ${v} * 0.5 + 0.5;\n`);
+			}
+			state.add_code(`${v} *= ${amplitude.code};\n`);
+			return {out: {code: v, type: t.type}};
+		}
 	},
 };
 let widget_ids_sorted_by_name = [];
@@ -806,7 +948,7 @@ function import_widgets(string) {
 			{
 				name: 'output',
 				func: 'output',
-				inputs: {},
+				inputs: {value: '#acabff'},
 				controls: {},
 			}
 		];
@@ -906,42 +1048,6 @@ function startup() {
 		}
 	}
 	
-	program_main = compile_program('main', {
-		'vertex': `
-attribute vec2 v_pos;
-varying vec2 uv;
-void main() {
-	uv = v_pos * 0.5 + 0.5;
-	gl_Position = vec4(v_pos, 0.0, 1.0);
-}`,
-		'fragment': `
-#ifdef GL_ES
-precision highp float;
-#endif
-
-uniform sampler2D u_texture;
-uniform float u_time;
-varying vec2 uv;
-
-void main() {
-	vec2 u = pow(uv,vec2(1.2 + 0.4 * sin(u_time)));
-	vec2 k =floor(3.0 * u); 
-	int i = int(k.y * 3.0 + k.x);
-	if (i == 4) discard;
-	vec3 sample = texture2D(u_texture, mod(3.0*u, 1.0)).xyz;
-	float h = mod(float(i) * 5.0, 8.0) / 8.0;
-	sample = vec3(
-		mix(sample.x, sample.z, h),
-		mix(sample.y, sample.x, h),
-		mix(sample.z, sample.y, h)
-	);
-	gl_FragColor = vec4(mix(sample, vec3(1.0,0.0,0.0), 0.2),1.0);
-}
-`
-	});
-	if (program_main === null) {
-		return;
-	}
 	
 	program_post = compile_program('post', {
 		'vertex': `
@@ -1004,6 +1110,8 @@ void main() {
 	widget_search.addEventListener('input', function (e) {
 		update_widget_choices();
 	});
+	import_widgets_from_local_storage();
+	update_shader();
 	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
@@ -1011,7 +1119,6 @@ void main() {
 	window.addEventListener('mousemove', on_mouse_move);
 	window.addEventListener('click', on_click);
 	
-	import_widgets_from_local_storage();
 }
 
 function frame(time) {
