@@ -18,7 +18,7 @@ let program_post;
 let vertex_buffer_rect;
 let vertex_buffer_main;
 let vertex_data_main;
-let page;
+let canvas_container;
 let canvas;
 let ui_canvas;
 let ui_ctx;
@@ -128,21 +128,30 @@ const widget_info = {
 			return {out: inputs.value};
 		}
 	},
-	'add': {
-		name: 'Add',
-		tooltip: 'add two numbers or vectors',
-		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
+	'wtadd': {
+		name: 'Add (weighted)',
+		tooltip: 'add two numbers or vectors (with weights)',
+		inputs: [{name: 'a', id: 'a'}, {name: 'a weight', id: 'aw'}, {name: 'b', id: 'b'}, {name: 'b weight', id: 'bw'}],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
+			let aw = inputs.aw;
+			let bw = inputs.bw;
 			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
 				return {error: `cannot add types ${a.type} and ${b.type}`};
 			}
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
+			if (aw.type !== output_type && aw.type !== type_base_type(output_type)) {
+				return {error: `bad weight type: ${aw.type}`};
+			}
+			if (bw.type !== output_type && bw.type !== type_base_type(output_type)) {
+				return {error: `bad weight type: ${bw.type}`};
+			}
+			
 			let v = state.next_variable();
-			state.add_code(`${output_type} ${v} = ${a.code} + ${b.code};\n`);
+			state.add_code(`${output_type} ${v} = ${a.code} * ${aw.code} + ${b.code} * ${bw.code};\n`);
 			return {out: {code: v, type: output_type}};
 		},
 	},
@@ -369,7 +378,6 @@ window.addEventListener('load', startup);
 function set_ui_shown(to) {
 	ui_shown = to;
 	ui_div.style.visibility = to ? 'visible' : 'collapse';
-	page.dataset.uiShown = to ? '1' : '0';
 }
 
 function rgba_hex_to_float(hex) {
@@ -962,7 +970,10 @@ function import_widgets(string) {
 			element.getElementsByClassName('widget-name')[0].value = name.substring(1);
 		}
 		function assign_value(container, value) {
-			let element = (container.getElementsByTagName('input') || container.getElementsByTagName('select'))[0];
+			let element = container.getElementsByTagName('input')[0];
+			if (element === undefined) {
+				element = container.getElementsByTagName('select')[0];
+			}
 			if (element.type === 'checkbox') {
 				element.checked = value === 'true' || value === '1' ? 'checked' : '';
 			} else {
@@ -1030,13 +1041,40 @@ function update_widget_choices() {
 	});
 }
 
+
+let resizing_ui = false;
+let ui_resize_offset = 0;
+
 function startup() {
-	page = document.getElementById('page');
+	canvas_container = document.getElementById('canvas-container');
 	canvas = document.getElementById('canvas');
 	ui_div = document.getElementById('ui');
 	widget_choices = document.getElementById('widget-choices');
 	widget_search = document.getElementById('widget-search');
 	widgets_container = document.getElementById('widgets-container');
+	ui_div.style.flexBasis = ui_div.offsetWidth + "px"; // convert to px
+	
+	// drag to resize ui
+	document.getElementById('ui-resize').addEventListener('mousedown', function (e) {
+		resizing_ui = true;
+		let basis = ui_div.style.flexBasis;
+		console.assert(basis.endsWith('px'));
+		ui_resize_offset = basis.substring(0, basis.length - 2) - e.clientX;
+		e.preventDefault();
+	});
+	window.addEventListener('mouseup', function (e) {
+		resizing_ui = false;
+	});
+	window.addEventListener('mousemove', function (e) {
+		if (resizing_ui) {
+			if (e.buttons & 1) {
+				ui_div.style.flexBasis = (e.clientX + ui_resize_offset) + "px";
+			} else {
+				resizing_ui = false;
+			}
+		}
+		e.preventDefault();
+	});
 	
 	gl = canvas.getContext('webgl');
 	if (gl === null) {
@@ -1123,27 +1161,26 @@ void main() {
 
 function frame(time) {
 	current_time = time * 1e-3;
-	let ui_width = ui_shown ? ui_div.offsetWidth : 0;
-	let page_width = page.offsetWidth - ui_width;
-	let page_height = page.offsetHeight;
+	let container_width = canvas_container.offsetWidth;
+	let container_height = canvas_container.offsetHeight;
 	
 	let aspect_ratio = width / height;
 	let canvas_x = 0, canvas_y = 0;
-	if (page_width / aspect_ratio < page_height) {
+	if (container_width / aspect_ratio < container_height) {
 		// landscape mode
-		canvas_y = Math.floor((page_height - viewport_height) * 0.5);
-		viewport_width = page_width;
-		viewport_height = Math.floor(page_width / aspect_ratio);
+		canvas_y = Math.floor((container_height - viewport_height) * 0.5);
+		viewport_width = container_width;
+		viewport_height = Math.floor(container_width / aspect_ratio);
 	} else {
 		// portrait mode
-		canvas_x = Math.floor((page_width - viewport_width) * 0.5);
-		viewport_width = Math.floor(page_height * aspect_ratio);
-		viewport_height = page_height;
+		canvas_x = Math.floor((container_width - viewport_width) * 0.5);
+		viewport_width = Math.floor(container_height * aspect_ratio);
+		viewport_height = container_height;
 	}
 	
 	canvas.width = viewport_width;
 	canvas.height = viewport_height;
-	canvas.style.left = ui_width + canvas_x + 'px';
+	canvas.style.left = canvas_x + 'px';
 	canvas.style.top = canvas_y + 'px';
 	
 	let step = true;

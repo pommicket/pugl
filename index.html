@@ -20,15 +20,21 @@
 	}
 	
 	#page {
+		display: flex;
 		width: 100vw;
 		height: 100vh;
-		position: relative;
+	}
+	
+	#canvas-container {
+	  position: relative;
+		width: 100%;
+		height: 100%;
+	  flex-grow: 0;
+	  flex-shrink: 1;
 	}
 	
 	#canvas {
 		position: absolute;
-		left: 0;
-		bottom: 0;
 	}
 	
 	#ui-canvas {
@@ -60,15 +66,28 @@
 	button:focus, input:focus {
 		outline: 2px solid #0a0;
 	}
+	#ui-resize {
+		flex-grow: 0;
+		flex-shrink: 0;
+		width: 8px;
+		cursor: col-resize;
+		display: flex;
+		justify-content: center;
+	}
+	#ui-resize-bar {
+		width: 2px;
+		height: 100%;
+		background: #fff;
+		margin: auto 0;
+	}
 	#ui {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 20vw;
-		height: 100vh;
-		resize: horizontal;
-		overflow: scroll;
-		border-right: 2px solid white;
+		overflow-x: auto;
+		overflow-y: scroll;
+		width: 100%;
+		height: 100%;
+		flex-grow: 0;
+		flex-shrink: 0;
+		flex-basis: 20%;
 		padding: 0.2em;
 	}
 	input, button {
@@ -107,6 +126,8 @@
 		height: 1.5em;
 	}
 	.widget {
+		display: inline-block;
+		width: 16em;
 		border: 2px solid white;
 		border-radius: 5px;
 		padding: 5px;
@@ -125,7 +146,7 @@
 		display: block;
 	}
 	.widget-name {
-		width: 10em;
+		width: 6em;
 	}
 	.widget-delete {
 		position: absolute;
@@ -174,12 +195,15 @@
 		<div id="widget-choices"></div>
 		<div id="widgets-container"></div>
 	</div>
-	<canvas id="canvas">
-		<p>
-			Your browser doesn't support HTML5 &lt;canvas&gt;.<br>
-			Try upgrading to the latest version of Microsoft Internet Explorer&reg;.
-		</p>
-	</canvas>
+	<div id="ui-resize"><div id="ui-resize-bar"></div></div>
+	<div id="canvas-container">
+		<canvas id="canvas">
+			<p>
+				Your browser doesn't support HTML5 &lt;canvas&gt;.<br>
+				Try upgrading to the latest version of Microsoft Internet Explorer&reg;.
+			</p>
+		</canvas>
+	</div>
 </div>
 
 <dialog id="error-dialog">
