@@ -7,14 +7,15 @@ TODO:
 - automatic widget names
 - forbid .,;|/\:(){}[]+-<>'"`~?!#%^&* in widget names
 - widgets:
-	- comparator
-	- rotate 2D
+	- rotate 3D
+	- buffer
+- parse input expressions
 - show which widget generated an error
 */
 
 let gl;
-let program_main;
-let program_post;
+let program_main = null;
+let program_post = null;
 let vertex_buffer_rect;
 let vertex_buffer_main;
 let vertex_data_main;
@@ -28,6 +29,7 @@ let sampler_texture;
 let current_time;
 let ui_shown = true;
 let ui_div;
+let ui_resize;
 let viewport_width, viewport_height;
 let shift_key = false, ctrl_key = false;
 let html_id = 0;
@@ -330,9 +332,10 @@ const widget_info = {
 			{name: 'period', id: 'period', tooltip: 'period of the wave'},
 			{name: 'amplitude', id: 'amp', tooltip: 'amplitude (maximum value) of the wave'},
 			{name: 'phase', id: 'phase', tooltip: 'phase of the wave (0.5 = phase by ½ period)'},
+			{name: 'baseline', id: 'center', tooltip: 'this value is added to the output at the end'},
 		],
 		controls: [
-			{name: 'non-negative', id: 'nonneg', tooltip: 'make the wave go from 0 to amp, rather than -amp to +amp', type: 'checkbox'},
+			{name: 'non-negative', id: 'nonneg', tooltip: 'make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp', type: 'checkbox'},
 		],
 		outputs: [{name: 'out', id: 'out'}],
 		func: function (state, inputs) {
@@ -340,6 +343,7 @@ const widget_info = {
 			let period = inputs.period;
 			let amplitude = inputs.amp;
 			let phase = inputs.phase;
+			let center = inputs.center;
 			if (type_base_type(t.type) !== 'float') {
 				return {error: 'bad type for t: ' + t.type};
 			}
@@ -352,16 +356,47 @@ const widget_info = {
 			if (phase.type !== 'float' && phase.type !== t.type) {
 				return {error: 'bad type for phase: ' + phase.type};
 			}
+			if (center.type !== 'float' && center.type !== t.type) {
+				return {error: 'bad type for center: ' + center.type};
+			}
 			
 			let v = state.next_variable();
 			state.add_code(`${t.type} ${v} = sin((${t.code} / ${period.code} - ${phase.code}) * 6.2831853);\n`);
 			if (inputs.nonneg) {
 				state.add_code(`${v} = ${v} * 0.5 + 0.5;\n`);
 			}
-			state.add_code(`${v} *= ${amplitude.code};\n`);
+			state.add_code(`${v} = ${v} * ${amplitude.code} + ${center.code};\n`);
 			return {out: {code: v, type: t.type}};
 		}
 	},
+	'rot2': {
+		name: 'Rotate 2D',
+		tooltip: 'rotate a 2-dimensional vector',
+		inputs: [
+			{name: 'v', id: 'v', tooltip: 'vector to rotate'},
+			{name: 'θ', id: 'theta', tooltip: 'angle to rotate by (in radians)'},
+		],
+		controls: [{name: 'direction', id: 'dir', tooltip: 'direction of rotation', type: 'select:clockwise|counterclockwise'}],
+		outputs: [{name: 'out', id: 'out', tooltip: 'the rotated vector'}],
+		func: function (state, inputs) {
+			let v = inputs.v;
+			let theta = inputs.theta;
+			if (v.type !== 'vec2') {
+				return {error: 'input vector to Rotate 2D must be vec2; got ' + v.type};
+			}
+			if (theta.type !== 'float') {
+				return {error: 'input angle to Rotate 2D must be float; got ' + theta.type};
+			}
+			
+			let w = state.next_variable();
+			let c = state.next_variable();
+			let s = state.next_variable();
+			state.add_code(`float ${c} = cos(${theta.code});\n`);
+			state.add_code(`float ${s} = sin(${theta.code});\n`);
+			state.add_code(`vec2 ${w} = vec2(${c} * ${v.code}.x - ${s} * ${v.code}.y, ${s} * ${v.code}.x + ${c} * ${v.code}.y);\n`);
+			return {out: {code: w, type: 'vec2'}};
+		},
+	}
 };
 let widget_ids_sorted_by_name = [];
 for (let id in widget_info) { 
@@ -377,7 +412,9 @@ window.addEventListener('load', startup);
 
 function set_ui_shown(to) {
 	ui_shown = to;
-	ui_div.style.visibility = to ? 'visible' : 'collapse';
+	let ui_viz = to ? 'visible' : 'collapse';
+	ui_div.style.visibility = ui_viz;
+	ui_resize.style.visibility = ui_viz;
 }
 
 function rgba_hex_to_float(hex) {
@@ -565,6 +602,10 @@ function type_vec(base_type, component_count) {
 function add_widget(func) {
 	let info = widget_info[func];
 	console.assert(info !== undefined, 'bad widget name: ' + func);
+	console.assert('inputs' in info, `info for ${func} missing inputs member`);
+	console.assert('outputs' in info, `info for ${func} missing outputs member`);
+	console.assert('controls' in info, `info for ${func} missing controls member`);
+	console.assert('name' in info, `info for ${func} missing name member`);
 	let root = document.createElement('div');
 	root.dataset.func = func;
 	root.classList.add('widget');
@@ -770,6 +811,9 @@ class GLSLGenerationState {
 		if (field.length >= 1 && field.length <= 4 && field.split('').every(function (c) { return 'xyzw'.indexOf(c) !== -1 })) {
 			// swizzle
 			let vector = this.compute_input(input.substring(0, dot));
+			if ('error' in vector) {
+				return {error: vector.error};
+			}
 			let base = type_base_type(vector.type);
 			let count = type_component_count(vector.type);
 			
@@ -1049,13 +1093,14 @@ function startup() {
 	canvas_container = document.getElementById('canvas-container');
 	canvas = document.getElementById('canvas');
 	ui_div = document.getElementById('ui');
+	ui_resize = document.getElementById('ui-resize');
 	widget_choices = document.getElementById('widget-choices');
 	widget_search = document.getElementById('widget-search');
 	widgets_container = document.getElementById('widgets-container');
 	ui_div.style.flexBasis = ui_div.offsetWidth + "px"; // convert to px
 	
 	// drag to resize ui
-	document.getElementById('ui-resize').addEventListener('mousedown', function (e) {
+	ui_resize.addEventListener('mousedown', function (e) {
 		resizing_ui = true;
 		let basis = ui_div.style.flexBasis;
 		console.assert(basis.endsWith('px'));
@@ -1211,7 +1256,7 @@ function frame(time) {
 }
 
 function perform_step() {
-	if (width === -1) {
+	if (width < 0 || program_main === null) {
 		// not properly loaded yet
 		return;
 	}
@@ -1303,6 +1348,7 @@ function compile_shader(name, type, source) {
 }
 
 function show_error(error) {
+	console.log('error', error);
 	document.getElementById('error-message').innerText = error;
 	document.getElementById('error-dialog').showModal();
 }
