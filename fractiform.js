@@ -11,6 +11,8 @@ TODO:
 	- buffer
 - parse input expressions
 - show which widget generated an error
+   - don't make the error a whole big pop-up
+   - switch 'change' event listener to 'input' for auto-update
 */
 
 let gl;
@@ -36,10 +38,23 @@ let html_id = 0;
 let widget_choices;
 let widget_search;
 let widgets_container;
+let display_output;
+let display_output_span = null;
+let auto_update = true;
 
 let width = 1920, height = 1920;
 
 const widget_info = {
+	'buffer': {
+		name: 'Buffer',
+		tooltip: 'outputs its input unaltered. useful for defining constants.',
+		inputs: [{name: 'in', id: 'input'}],
+		outputs: [{name: 'out', id: 'out', tooltip: 'has the same value as in'}],
+		controls: [],
+		func: function(state, inputs) {
+			return {out: inputs.input};
+		},
+	},
 	'mix': {
 		name: 'Mix',
 		tooltip: 'weighted average of two inputs',
@@ -120,15 +135,6 @@ const widget_info = {
 			state.add_code(`vec3 ${v} = texture2D(u_texture, ${vpos}).xyz;\n`);
 			return {out: {type: 'vec3', code: v}};
 		},
-	},
-	'output': {
-		name: 'Output color',
-		inputs: [{name: 'value', id: 'value'}],
-		controls: [],
-		outputs: [],
-		func: function(state, inputs) {
-			return {out: inputs.value};
-		}
 	},
 	'wtadd': {
 		name: 'Add (weighted)',
@@ -472,8 +478,9 @@ function update_key_modifiers_from_event(e) {
 
 function update_shader() {
 	let source = get_shader_source();
-	if (source === null)
+	if (source === null) {
 		return;
+	}
 	let fragment_code = `
 #ifdef GL_ES
 precision highp float;
@@ -599,6 +606,37 @@ function type_vec(base_type, component_count) {
 	}
 }
 
+function get_widget_by_name(name) {
+	for (let w of document.getElementsByClassName('widget')) {
+		if (get_widget_name(w) === name) {
+			return w;
+		}
+	}
+	return null;
+}
+
+function set_display_output_and_update_shader(to) {
+	for (let out of document.getElementsByClassName('out')) {
+		out.dataset.active = '0';
+	}
+	
+	display_output = to;
+	let parts = to.split('.');
+	if (parts.length !== 2 || !parts[0] || !parts[1]) {
+		display_output = null;
+		return;
+	}
+	
+	let widget = get_widget_by_name(parts[0]);
+	for (let out of widget.getElementsByClassName('out')) {
+		if (out.dataset.id === parts[1]) {
+			out.dataset.active = '1';
+		}
+	}
+	
+	update_shader();
+}
+
 function add_widget(func) {
 	let info = widget_info[func];
 	console.assert(info !== undefined, 'bad widget name: ' + func);
@@ -659,6 +697,12 @@ function add_widget(func) {
 		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
 		root.appendChild(container);
+		
+		input_element.addEventListener('change', function (e) {
+			if (auto_update) {
+				update_shader();
+			}
+		});
 	});
 	
 	// controls
@@ -686,6 +730,12 @@ function add_widget(func) {
 			console.error('bad control type');
 		}
 		
+		input.addEventListener('change', function (e) {
+			if (auto_update) {
+				update_shader();
+			}
+		});
+		
 		input.id = 'gen-control-' + (++html_id);
 		input.classList.add('control-input');
 		let label = document.createElement('label');
@@ -709,7 +759,13 @@ function add_widget(func) {
 			}
 			let span = document.createElement('span');
 			span.classList.add('out');
+			span.dataset.id = output.id;
 			span.appendChild(document.createTextNode(output.name));
+			span.addEventListener('click', function (e) {
+				let name = get_widget_name(root);
+				set_display_output_and_update_shader(name + '.' + output.id);
+				e.preventDefault();
+			});
 			if ('tooltip' in output) {
 				span.title = output.tooltip;
 			}
@@ -726,7 +782,7 @@ class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
 		this.code = [];
-		this.computing_inputs = {};
+		this.computing_inputs = new Set();
 		this.variable = 0;
 	}
 	
@@ -843,18 +899,17 @@ class GLSLGenerationState {
 		if (dot !== -1) {
 			input = input.substring(0, dot);
 		}
-		let esc_input = '-' + input; // prevent wacky stuff if input is an Object built-in
-		let widget = this.widgets[esc_input];
+		let widget = this.widgets.get(input);
 		if (widget === undefined) {
-			return {error: 'cannot find ' + input};
+			return {error: `cannot find widget '${input}'`};
 		}
 		
-		if (esc_input in this.computing_inputs) {
+		if (this.computing_inputs.has(input)) {
 			return {error: 'circular dependency at ' + input};
 		}
-		this.computing_inputs[esc_input] = true;
+		this.computing_inputs.add(input);
 		let value = this.compute_widget_output(widget, field);
-		delete this.computing_inputs[esc_input];
+		this.computing_inputs.delete(input);
 		return value;
 	}
 	
@@ -888,13 +943,20 @@ class GLSLGenerationState {
 	}
 }
 
+function get_widget_name(widget_div) {
+	let names = widget_div.getElementsByClassName('widget-name');
+	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
+	return names[0].value;
+}
+
 function parse_widgets() {
-	let widgets = {};
+	let widgets = new Map();
 	for (let widget_div of document.getElementsByClassName('widget')) {
-		let names = widget_div.getElementsByClassName('widget-name');
-		console.assert(names.length <= 1, 'multiple name inputs for widget');
-		let name = names.length > 0 ? names[0].value : null;
+		let name = get_widget_name(widget_div);
 		let func = widget_div.dataset.func;
+		if (!name) {
+			return {error: `widget has no name. please give it one.`};
+		}
 		let inputs = {};
 		let controls = {};
 		for (let input of widget_div.getElementsByClassName('in')) {
@@ -912,26 +974,28 @@ function parse_widgets() {
 			}
 			controls[id] = value;
 		}
-		let widget = {
+		if (widgets.has(name)) {
+			return {error: `duplicate widget name: ${name}`};
+		}
+		widgets.set(name, {
 			func: func,
 			inputs: inputs,
 			controls: controls,
-		};
-		if (name !== null) {
-			widgets['-' + name] = widget;
-		}
-		if (func === 'output') {
-			widgets.output = widget;
-		}
+		});
 	}
 	return widgets;
 }
 
 function export_widgets() {
 	let widgets = parse_widgets();
+	if ('error' in widgets) {
+		return {error: widgets.error};
+	}
+	console.assert(widgets instanceof Map);
 	let data = [];
-	for (let name in widgets) {
-		let widget = widgets[name];
+	for (let kv of widgets) {
+		let name = kv[0];
+		let widget = kv[1];
 		data.push(widget.func);
 		data.push(';');
 		data.push('n:');
@@ -954,15 +1018,22 @@ function export_widgets() {
 		data.pop(); // remove terminal separator
 		data.push(';;');
 	}
-	data.pop(); // remove terminal separator
+	data.push('_out=');
+	data.push(display_output);
 	return data.join('');
 }
 
 function import_widgets(string) {
 	let widgets = [];
-	console.log(string);
+	let output = null;
 	if (string) {
+		console.log(string);
 		for (let widget_str of string.split(';;')) {
+			if (widget_str.startsWith('_out=')) {
+				output = widget_str.substring('_out='.length);
+				continue;
+			}
+			
 			let parts = widget_str.split(';');
 			let func = parts[0];
 			let widget = {name: null, func: func, inputs: {}, controls: {}};
@@ -999,20 +1070,21 @@ function import_widgets(string) {
 		widgets = [
 			{
 				name: 'output',
-				func: 'output',
-				inputs: {value: '#acabff'},
+				func: 'buffer',
+				inputs: {input: '#acabff'},
 				controls: {},
 			}
 		];
 	}
 	
 	widgets_container.innerHTML = '';
-	widgets.forEach(function (widget) {
+	for (let widget of widgets) {
 		let name = widget.name;
-		let element = add_widget(widget.func);
-		if (name.startsWith('-')) {
-			element.getElementsByClassName('widget-name')[0].value = name.substring(1);
+		if (!(widget.func in widget_info)) {
+			return {error: `bad import string (widget type '${widget.func}' does not exist)`};
 		}
+		let element = add_widget(widget.func);
+		element.getElementsByClassName('widget-name')[0].value = name;
 		function assign_value(container, value) {
 			let element = container.getElementsByTagName('input')[0];
 			if (element === undefined) {
@@ -1036,7 +1108,9 @@ function import_widgets(string) {
 			);
 			assign_value(container, widget.controls[control]);
 		}
-	});
+	};
+	
+	set_display_output_and_update_shader(output);
 }
 
 function import_widgets_from_local_storage() {
@@ -1044,27 +1118,46 @@ function import_widgets_from_local_storage() {
 }
 
 function export_widgets_to_local_storage() {
-	localStorage.setItem('widgets', export_widgets());
+	let widget_str = export_widgets();
+	console.log('save', widget_str);
+	localStorage.setItem('widgets', widget_str);
 }
 
 function get_shader_source() {
-	let widgets = parse_widgets();
-	let output_widget = widgets.output;
-	let state = new GLSLGenerationState(widgets);
-	if (output_widget === undefined) {
-		show_error('no output color');
+	if (!display_output) {
+		show_error('no output chosen');
 		return null;
 	}
-	let output = state.compute_widget_output(output_widget, 'out');
+	let widgets = parse_widgets();
+	if ('error' in widgets) {
+		show_error(widgets.error);
+		return null;
+	}
+	let state = new GLSLGenerationState(widgets);
+	let output = state.compute_input(display_output);
 	if ('error' in output) {
 		show_error(output.error);
 		return null;
 	}
-	if (output.type !== 'vec3') {
-		show_error('output color should have type vec3, but it has type ' + output.type);
+	
+	switch (output.type) {
+	case 'float':
+		state.add_code(`return vec3(${output.code});\n`);
+		break;
+	case 'vec2':
+		state.add_code(`return vec3(${output.code}, 0.0);\n`);
+		break;
+	case 'vec3':
+		state.add_code(`return ${output.code};\n`);
+		break;
+	case 'vec4':
+		state.add_code(`return ${output.code}.xyz;\n`);
+		break;
+	default:
+		show_error(`bad type for output: ${output.type}`);
 		return null;
 	}
-	state.add_code(`return ${output.code};\n`);
+	
 	let code = state.get_code();
 	console.log(code);
 	export_widgets_to_local_storage();
@@ -1078,10 +1171,6 @@ function update_widget_choices() {
 		let name = widget_info[id].name;
 		let choice = choices[i];
 		let shown = name.toLowerCase().indexOf(search_term) !== -1;
-		if (id === 'output') {
-			shown = false;
-		}
-		choice.style.display = shown ? 'block' : 'none';
 	});
 }
 
@@ -1194,7 +1283,6 @@ void main() {
 		update_widget_choices();
 	});
 	import_widgets_from_local_storage();
-	update_shader();
 	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
@@ -1348,7 +1436,7 @@ function compile_shader(name, type, source) {
 }
 
 function show_error(error) {
-	console.log('error', error);
+	console.log('error:', error);
 	document.getElementById('error-message').innerText = error;
 	document.getElementById('error-dialog').showModal();
 }

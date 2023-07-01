@@ -87,7 +87,7 @@
 		height: 100%;
 		flex-grow: 0;
 		flex-shrink: 0;
-		flex-basis: 20%;
+		flex-basis: 20em;
 		padding: 0.2em;
 	}
 	input, button {
@@ -113,8 +113,15 @@
 	}
 	.out {
 		font-weight: bold;
+		cursor: pointer;
+		
+		user-select: none; /* most browsers */
+		-webkit-user-select: none; /* old chrome/edge */
+		-moz-user-select: none; /* old firefox */
+		-khtml-user-select: none; /* konqueror apparently lol */
+		-ms-user-select: none; /* IE */
 	}
-	input[type=number] {
+	input[type="number"] {
 		/* disable increment/decrement buttons (firefox) */
 		-moz-appearance: textfield;
 	}
@@ -139,6 +146,9 @@
 		position: absolute;
 		bottom: 0.2em;
 		right: 0.2em;
+	}
+	.out[data-active="1"] {
+		color: #ff0;
 	}
 	.widget-title {
 		font-weight: bold;
