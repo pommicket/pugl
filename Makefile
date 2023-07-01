@@ -1,0 +1,1 @@
+TSFLAGS=--noImplicitAny --noEmitOnError --strictNullChecks
