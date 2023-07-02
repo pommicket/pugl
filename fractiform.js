@@ -2,13 +2,10 @@
 
 /*
 TODO:
-- default input values
 - detect duplicate widget names
-- automatic widget names
 - forbid .,;|/\:(){}[]+-<>'"`~?!#%^&* in widget names
 - widgets:
 	- rotate 3D
-	- buffer
 - parse input expressions
 - show which widget generated an error
    - don't make the error a whole big pop-up
@@ -59,9 +56,9 @@ const widget_info = {
 		name: 'Mix',
 		tooltip: 'weighted average of two inputs',
 		inputs: [
-			{name: 'source 1', id: 'src1'},
-			{name: 'source 2', id: 'src2'},
-			{name: 'mix', id: 'mix'},
+			{name: 'source 1', id: 'src1', dfl: 0},
+			{name: 'source 2', id: 'src2', dfl: 1},
+			{name: 'mix', id: 'mix', dfl: 0.5},
 		],
 		controls: [
 			{name: 'clamp mix', id: 'clamp', type: 'checkbox', tooltip: 'clamp the mix input to the [0, 1] range'}
@@ -97,7 +94,9 @@ const widget_info = {
 	'prev': {
 		name: 'Last frame',
 		tooltip: 'sample from the previous frame',
-		inputs: [{name: 'pos', id: 'pos', tooltip: 'position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)'}],
+		inputs: [
+			{name: 'pos', id: 'pos', tooltip: 'position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)'}
+		],
 		controls: [
 			{name: 'wrap mode', id: 'wrap', type: 'select:clamp|wrap', tooltip: 'how to deal with the input components if they go outside [0, 1]'},
 			{name: 'sample mode', id: 'sample', type: 'select:linear|nearest', tooltip: 'how positions in between pixels should be sampled'},
@@ -139,7 +138,12 @@ const widget_info = {
 	'wtadd': {
 		name: 'Add (weighted)',
 		tooltip: 'add two numbers or vectors (with weights)',
-		inputs: [{name: 'a', id: 'a'}, {name: 'a weight', id: 'aw'}, {name: 'b', id: 'b'}, {name: 'b weight', id: 'bw'}],
+		inputs: [
+			{name: 'a', id: 'a'},
+			{name: 'a weight', id: 'aw', dfl: 1},
+			{name: 'b', id: 'b'},
+			{name: 'b weight', id: 'bw', dfl: 1}
+		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
@@ -166,7 +170,10 @@ const widget_info = {
 	'mul': {
 		name: 'Multiply',
 		tooltip: 'multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors',
-		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
+		inputs: [
+			{name: 'a', id: 'a'},
+			{name: 'b', id: 'b'},
+		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
@@ -184,7 +191,10 @@ const widget_info = {
 	'pow': {
 		name: 'Power',
 		tooltip: 'take one number to the power of another',
-		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
+		inputs: [
+			{name: 'a', id: 'a'},
+			{name: 'b', id: 'b'},
+		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
@@ -202,7 +212,10 @@ const widget_info = {
 	'mod': {
 		name: 'Modulo',
 		tooltip: 'wrap a value at a certain limit',
-		inputs: [{name: 'a', id: 'a'}, {name: 'b', id: 'b'}],
+		inputs: [
+			{name: 'a', id: 'a'},
+			{name: 'b', id: 'b', dfl: '1'},
+		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
@@ -222,10 +235,10 @@ const widget_info = {
 		name: 'Square',
 		tooltip: 'select between two inputs depending on whether a point lies within a square (or cube in 3D)',
 		inputs: [
-			{name: 'pos', id: 'pos', tooltip: 'point to test'},
-			{name: 'inside', id: 'inside', tooltip: 'source to use if pos lies inside the square'},
-			{name: 'outside', id: 'outside', tooltip: 'source to use if pos lies outside the square'},
-			{name: 'size', id: 'size', tooltip: 'radius of the square'},
+			{name: 'pos', id: 'pos', tooltip: 'point to test', dfl: '.pos'},
+			{name: 'inside', id: 'inside', dfl: '#f00', tooltip: 'source to use if pos lies inside the square'},
+			{name: 'outside', id: 'outside', dfl: '#0f0', tooltip: 'source to use if pos lies outside the square'},
+			{name: 'size', id: 'size', tooltip: 'radius of the square', dfl: '0.5'},
 		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
@@ -270,10 +283,10 @@ const widget_info = {
 		name: 'Circle',
 		tooltip: 'select between two inputs depending on whether a point lies within a circle (or sphere in 3D)',
 		inputs: [
-			{name: 'pos', id: 'pos', tooltip: 'point to test'},
-			{name: 'inside', id: 'inside', tooltip: 'source to use if pos lies inside the circle'},
-			{name: 'outside', id: 'outside', tooltip: 'source to use if pos lies outside the circle'},
-			{name: 'size', id: 'size', tooltip: 'radius of the circle'},
+			{name: 'pos', id: 'pos', dfl: '.pos', tooltip: 'point to test'},
+			{name: 'inside', id: 'inside', dfl: '#f00', tooltip: 'source to use if pos lies inside the circle'},
+			{name: 'outside', id: 'outside', dfl: '#0f0', tooltip: 'source to use if pos lies outside the circle'},
+			{name: 'size', id: 'size', dfl: '0.5', tooltip: 'radius of the circle'},
 		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
@@ -304,9 +317,9 @@ const widget_info = {
 		tooltip: 'select between two inputs depending on a comparison between two values',
 		inputs: [
 			{name: 'compare 1', id: 'cmp1', tooltip: 'input to compare against "Compare 2"'},
-			{name: 'compare 2', id: 'cmp2', tooltip: 'input to compare against "Compare 1"'},
-			{name: 'if less', id: 'less', tooltip: 'value to output if "Compare 1" < "Compare 2"'},
-			{name: 'if greater', id: 'greater', tooltip: 'value to output if "Compare 1" ≥ "Compare 2"'},
+			{name: 'compare 2', dfl: '0', id: 'cmp2', tooltip: 'input to compare against "Compare 1"'},
+			{name: 'if less', dfl: '0', id: 'less', tooltip: 'value to output if "Compare 1" < "Compare 2"'},
+			{name: 'if greater', dfl: '1', id: 'greater', tooltip: 'value to output if "Compare 1" ≥ "Compare 2"'},
 		],
 		controls: [],
 		outputs: [{name: 'out', id: 'out'}],
@@ -316,10 +329,10 @@ const widget_info = {
 			let less = inputs.less;
 			let greater = inputs.greater;
 			if (cmp1.type !== 'float') {
-				return {error: 'bad type for "Compare 1": ' + pos.type};
+				return {error: `bad type for "Compare 1": ${cmp1.type}`};
 			}
 			if (cmp2.type !== 'float') {
-				return {error: 'bad type for "Compare 2": ' + pos.type};
+				return {error: `bad type for "Compare 2": ${cmp2.type}`};
 			}
 			let type = less.type;
 			if (type !== greater.type) {
@@ -335,10 +348,10 @@ const widget_info = {
 		tooltip: 'a wave based on the sin function',
 		inputs: [
 			{name: 't', id: 't', tooltip: 'position in the wave'},
-			{name: 'period', id: 'period', tooltip: 'period of the wave'},
-			{name: 'amplitude', id: 'amp', tooltip: 'amplitude (maximum value) of the wave'},
-			{name: 'phase', id: 'phase', tooltip: 'phase of the wave (0.5 = phase by ½ period)'},
-			{name: 'baseline', id: 'center', tooltip: 'this value is added to the output at the end'},
+			{name: 'period', id: 'period', dfl: '1', tooltip: 'period of the wave'},
+			{name: 'amplitude', id: 'amp', dfl: '1', tooltip: 'amplitude (maximum value) of the wave'},
+			{name: 'phase', id: 'phase', dfl: '0', tooltip: 'phase of the wave (0.5 = phase by ½ period)'},
+			{name: 'baseline', id: 'center', dfl: '0', tooltip: 'this value is added to the output at the end'},
 		],
 		controls: [
 			{name: 'non-negative', id: 'nonneg', tooltip: 'make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp', type: 'checkbox'},
@@ -615,6 +628,22 @@ function get_widget_by_name(name) {
 	return null;
 }
 
+function get_widget_name(widget_div) {
+	let names = widget_div.getElementsByClassName('widget-name');
+	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
+	return names[0].value;
+}
+
+
+function get_widget_names() {
+	let s = new Set();
+	for (let w of document.getElementsByClassName('widget-name')) {
+		s.add(w.value);
+	}
+	return s;
+}
+
+
 function set_display_output_and_update_shader(to) {
 	for (let out of document.getElementsByClassName('out')) {
 		out.dataset.active = '0';
@@ -659,6 +688,17 @@ function add_widget(func) {
 			let name_input = document.createElement('input');
 			name_input.placeholder = 'Name';
 			name_input.classList.add('widget-name');
+			
+			// generate unique name
+			let names = get_widget_names();
+			let i;
+			for (i = 1; ; i++) {
+				if (!names.has(func + i)) {
+					break;
+				}
+			}
+			name_input.value = func + i;
+			
 			title.appendChild(name_input);
 		}
 		root.appendChild(title);
@@ -692,6 +732,9 @@ function add_widget(func) {
 		if ('tooltip' in input) {
 			label.title = input.tooltip;
 		}
+		if ('dfl' in input) {
+			input_element.value = input.dfl;
+		}
 		label.appendChild(document.createTextNode(input.name));
 		container.appendChild(input_element);
 		container.appendChild(document.createTextNode(' '));
@@ -716,6 +759,9 @@ function add_widget(func) {
 		if (type === 'checkbox') {
 			input = document.createElement('input');
 			input.type = 'checkbox';
+			if (control.dfl) {
+				input.checked = 'checked';
+			}
 		} else if (type.startsWith('select:')) {
 			let options = type.substring('select:'.length).split('|');
 			
@@ -725,6 +771,10 @@ function add_widget(func) {
 				option.appendChild(document.createTextNode(opt));
 				option.value = opt;
 				input.appendChild(option);
+			}
+			
+			if ('dfl' in control) {
+				input.value = dfl;
 			}
 		} else {
 			console.error('bad control type');
@@ -941,12 +991,6 @@ class GLSLGenerationState {
 		}
 		return outputs[output];
 	}
-}
-
-function get_widget_name(widget_div) {
-	let names = widget_div.getElementsByClassName('widget-name');
-	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
-	return names[0].value;
 }
 
 function parse_widgets() {
