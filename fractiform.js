@@ -415,6 +415,60 @@ const widget_info = {
 			state.add_code(`vec2 ${w} = vec2(${c} * ${v.code}.x - ${s} * ${v.code}.y, ${s} * ${v.code}.x + ${c} * ${v.code}.y);\n`);
 			return {out: {code: w, type: 'vec2'}};
 		},
+	},
+	'hue': {
+		name: 'Hue shift',
+		tooltip: 'shift hue of color',
+		inputs: [
+			{name: 'color', id: 'color', tooltip: 'input color'},
+			{name: 'shift', id: 'shift', tooltip: 'how much to shift hue by (0.5 = shift halfway across the rainbow)'},
+		],
+		controls: [],
+		outputs: [{name: 'out', id: 'out'}],
+		func: function (state, inputs) {
+			let color = inputs.color;
+			let shift = inputs.shift;
+			if (color.type !== 'vec3') {
+				return {error: `color should be vec3, not ${color.type}`};
+			}
+			if (shift.type !== 'float') {
+				return {error: `hue shift should be float, not ${shift.type}`};
+			}
+			
+			let v = state.next_variable();
+			state.add_code(`vec3 ${v} = hue_shift(${color.code}, ${shift.code});\n`);
+			return {out: {code: v, type: 'vec3'}};
+		},
+	},
+	'clamp': {
+		name: 'Clamp',
+		tooltip: 'clamp a value between a minimum and maximum',
+		inputs: [
+			{name: 'value', id: 'val', tooltip: 'input value'},
+			{name: 'minimum', id: 'min'},
+			{name: 'maximum', id: 'max'},
+		],
+		outputs: [
+			{name: 'out', id: 'out'}
+		],
+		controls: [],
+		func: function(state, inputs) {
+			let min = inputs.min;
+			let max = inputs.max;
+			let val = inputs.val;
+			if (type_base_type(val.type) !== 'float') {
+				return {error: `bad type for clamp value: ${val.type}`};
+			}
+			if (min.type !== val.type && min.type !== type_base_type(val.type)) {
+				return {error: `bad type for clamp minimum: ${min.type}`};
+			}
+			if (max.type !== val.type && max.type !== type_base_type(val.type)) {
+				return {error: `bad type for clamp maximum: ${max.type}`};
+			}
+			let v = state.next_variable();
+			state.add_code(`${val.type} ${v} = clamp(${val.code}, ${min.code}, ${max.code});\n`);
+			return {out: {code: v, type: val.type}};
+		}
 	}
 };
 let widget_ids_sorted_by_name = [];
@@ -503,6 +557,30 @@ uniform sampler2D u_texture;
 uniform float u_time;
 uniform vec2 u_texture_size;
 varying vec2 pos;
+
+vec3 rgb2hsv(vec3 c)
+{
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c)
+{
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+vec3 hue_shift(vec3 color, float shift) {
+	vec3 hsv = rgb2hsv(color);
+	hsv.x = mod(hsv.x + shift, 1.0);
+	return hsv2rgb(hsv);
+}
 
 vec3 get_color() {
 	${source}
