@@ -755,6 +755,20 @@ function add_widget(func) {
 	root.dataset.func = func;
 	root.classList.add('widget');
 	
+	{
+		// delete button
+		let delete_button = document.createElement('button');
+		let delete_img = document.createElement('img');
+		delete_img.src = 'x.svg';
+		delete_img.alt = 'delete';
+		delete_button.appendChild(delete_img);
+		delete_button.classList.add('widget-delete');
+		delete_button.addEventListener('click', function (e) {
+			root.remove();
+		});
+		root.appendChild(delete_button);
+	}
+	
 	{ // title
 		let title = document.createElement('div');
 		title.classList.add('widget-title');
@@ -782,20 +796,6 @@ function add_widget(func) {
 		root.appendChild(title);
 	}
 	
-	if (func !== 'output') {
-		// delete button
-		let delete_button = document.createElement('button');
-		let delete_img = document.createElement('img');
-		delete_img.src = 'x.svg';
-		delete_img.alt = 'delete';
-		delete_button.appendChild(delete_img);
-		delete_button.classList.add('widget-delete');
-		delete_button.addEventListener('click', function (e) {
-			root.remove();
-		});
-		root.appendChild(delete_button);
-	}
-	
 	// inputs
 	info.inputs.forEach(function (input) {
 		let container = document.createElement('div');
@@ -818,6 +818,7 @@ function add_widget(func) {
 		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
 		root.appendChild(container);
+		root.appendChild(document.createTextNode(' '));
 		
 		input_element.addEventListener('change', function (e) {
 			if (auto_update) {
@@ -876,6 +877,7 @@ function add_widget(func) {
 		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
 		root.appendChild(container);
+		root.appendChild(document.createTextNode(' '));
 	}
 	
 	{ // outputs
@@ -900,6 +902,7 @@ function add_widget(func) {
 			container.appendChild(span);
 		});
 		root.appendChild(container);
+		root.appendChild(document.createTextNode(' '));
 	}
 	
 	widgets_container.appendChild(root);

@@ -111,6 +111,13 @@
 	.in input {
 		width: 5em;
 	}
+	.in, .out, .ins, .outs, .control, .widget-title {
+		display: inline;
+	}
+	.in, .out, .control {
+		margin: 0.5em;
+		white-space: nowrap;
+	}
 	.out {
 		font-weight: bold;
 		cursor: pointer;
@@ -133,35 +140,23 @@
 		height: 1.5em;
 	}
 	.widget {
-		display: inline-block;
-		width: 16em;
-		border: 2px solid white;
-		border-radius: 5px;
-		padding: 5px;
-		margin: 0.5em;
+		display: block;
+		border-bottom: 2px solid #777;
+		padding: 0.5em 0;
 		background: #111;
 		position: relative;
-	}
-	.outs {
-		position: absolute;
-		bottom: 0.2em;
-		right: 0.2em;
 	}
 	.out[data-active="1"] {
 		color: #ff0;
 	}
 	.widget-title {
 		font-weight: bold;
-		margin: 2px;
-		display: block;
+		margin: 1em 0.3em;
 	}
 	.widget-name {
 		width: 6em;
 	}
 	.widget-delete {
-		position: absolute;
-		right: 0.2em;
-		top: 0.2em;
 		border: 0;
 	}
 	.widget-delete img {
@@ -170,7 +165,7 @@
 	.widget-delete:hover, .widget-delete:active {
 		background-color: transparent;
 		outline: 0;
-		filter: brightness(50%);
+		filter: saturate(500%);
 	}
 	.widget-choice {
 		width: 100%;
