@@ -36,6 +36,7 @@ let widget_choices;
 let widget_search;
 let widgets_container;
 let display_output;
+let code_input;
 let display_output_span = null;
 let auto_update = true;
 
@@ -1244,7 +1245,7 @@ function import_widgets_from_local_storage() {
 
 function export_widgets_to_local_storage() {
 	let widget_str = export_widgets();
-	console.log('save', widget_str);
+	code_input.value = widget_str;
 	localStorage.setItem('widgets', widget_str);
 }
 
@@ -1311,6 +1312,7 @@ function startup() {
 	widget_choices = document.getElementById('widget-choices');
 	widget_search = document.getElementById('widget-search');
 	widgets_container = document.getElementById('widgets-container');
+	code_input = document.getElementById('code');
 	ui_div.style.flexBasis = ui_div.offsetWidth + "px"; // convert to px
 	
 	// drag to resize ui
@@ -1333,6 +1335,10 @@ function startup() {
 			}
 		}
 		e.preventDefault();
+	});
+	
+	document.getElementById('code-form').addEventListener('submit', function (e) {
+		import_widgets(code_input.value);
 	});
 	
 	gl = canvas.getContext('webgl');

@@ -101,7 +101,7 @@
 	button {
 		height: 2.0em;
 	}
-	input {
+	input[type=text], input[type=number] {
 		height: 1.5em;
 		font-size: inherit;
 	}
@@ -196,6 +196,10 @@
 		</p>
 	</noscript>
 	<div id="ui">
+		<form action="#" method="dialog" id="code-form">
+			<input type="text" placeholder="Code" id="code">
+			<input type="submit" value="✓">
+		</form>
 		Add <input type="text" id="widget-search" placeholder="Search">
 		<div id="widget-choices"></div>
 		<div id="widgets-container"></div>
