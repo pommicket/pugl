@@ -2,7 +2,6 @@
 
 /*
 TODO:
-- use contenteditable instead of input?
 - detect duplicate widget names
 - forbid .,;|/\:(){}[]+-<>'"`~?!#%^&* in widget names
 - widgets:
@@ -769,7 +768,10 @@ function add_widget(func) {
 		container.classList.add('in');
 		console.assert('id' in input, 'input missing ID', input);
 		container.dataset.id = input.id;
-		let input_element = document.createElement('input');
+		let input_element = document.createElement('div');
+		input_element.contentEditable = true;
+		input_element.classList.add('entry');
+		input_element.appendChild(document.createElement('br'));
 		input_element.type = 'text';
 		input_element.id = 'gen-input-' + (++html_id);
 		let label = document.createElement('label');
@@ -778,11 +780,11 @@ function add_widget(func) {
 			label.title = input.tooltip;
 		}
 		if ('dfl' in input) {
-			input_element.value = input.dfl;
+			input_element.innerText = input.dfl;
 		}
 		label.appendChild(document.createTextNode(input.name));
 		container.appendChild(label);
-		container.appendChild(document.createTextNode(' '));
+		container.appendChild(document.createTextNode('='));
 		container.appendChild(input_element);
 		root.appendChild(container);
 		root.appendChild(document.createTextNode(' '));
@@ -841,7 +843,7 @@ function add_widget(func) {
 			label.title = control.tooltip;
 		}
 		container.appendChild(label);
-		container.appendChild(document.createTextNode(' '));
+		container.appendChild(document.createTextNode('='));
 		container.appendChild(input);
 		root.appendChild(container);
 		root.appendChild(document.createTextNode(' '));
@@ -1031,7 +1033,7 @@ function parse_widgets() {
 		let controls = {};
 		for (let input of widget_div.getElementsByClassName('in')) {
 			let id = input.dataset.id;
-			inputs[id] = input.getElementsByTagName('input')[0].value;
+			inputs[id] = input.getElementsByClassName('entry')[0].innerText;
 		}
 		for (let control of widget_div.getElementsByClassName('control')) {
 			let id = control.dataset.id;
@@ -1160,10 +1162,17 @@ function import_widgets(string) {
 			if (element === undefined) {
 				element = container.getElementsByTagName('select')[0];
 			}
+			if (element === undefined) {
+				element = container.getElementsByClassName('entry')[0];
+			}
 			if (element.type === 'checkbox') {
 				element.checked = value === 'true' || value === '1' ? 'checked' : '';
-			} else {
+			} else if (element.tagName === 'INPUT' || element.tagName === 'SELECT') {
 				element.value = value;
+			} else if (element.tagName === 'DIV') {
+				element.innerText = value;
+			} else {
+				console.error('bad element', element);
 			}
 		}
 		for (let input in widget.inputs) {
