@@ -2,6 +2,7 @@
 
 /*
 TODO:
+- use contenteditable instead of input?
 - detect duplicate widget names
 - forbid .,;|/\:(){}[]+-<>'"`~?!#%^&* in widget names
 - widgets:
@@ -47,10 +48,9 @@ const widget_info = {
 		name: 'Buffer',
 		tooltip: 'outputs its input unaltered. useful for defining constants.',
 		inputs: [{name: 'in', id: 'input'}],
-		outputs: [{name: 'out', id: 'out', tooltip: 'has the same value as in'}],
 		controls: [],
 		func: function(state, inputs) {
-			return {out: inputs.input};
+			return inputs.input;
 		},
 	},
 	'mix': {
@@ -63,9 +63,6 @@ const widget_info = {
 		],
 		controls: [
 			{name: 'clamp mix', id: 'clamp', type: 'checkbox', tooltip: 'clamp the mix input to the [0, 1] range'}
-		],
-		outputs: [
-			{name: 'out', id: 'out', tooltip: 'mix × (source 1) + (1 - mix) × (source 2)'}
 		],
 		func: function(state, inputs) {
 			let src1 = inputs.src1;
@@ -89,7 +86,7 @@ const widget_info = {
 			let type = src1.type;
 			let v = state.next_variable();
 			state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix_code});\n`);
-			return {out: {type: type, code: v}};
+			return {type: type, code: v};
 		},
 	},
 	'prev': {
@@ -102,7 +99,6 @@ const widget_info = {
 			{name: 'wrap mode', id: 'wrap', type: 'select:clamp|wrap', tooltip: 'how to deal with the input components if they go outside [0, 1]'},
 			{name: 'sample mode', id: 'sample', type: 'select:linear|nearest', tooltip: 'how positions in between pixels should be sampled'},
 		],
-		outputs: [{name: 'out', id: 'out', tooltip: 'the color from the previous frame'}],
 		func: function(state, inputs) {
 			let pos = inputs.pos;
 			if (pos.type !== 'vec2') {
@@ -133,7 +129,7 @@ const widget_info = {
 			}
 			let v = state.next_variable();
 			state.add_code(`vec3 ${v} = texture2D(u_texture, ${vpos}).xyz;\n`);
-			return {out: {type: 'vec3', code: v}};
+			return {type: 'vec3', code: v};
 		},
 	},
 	'wtadd': {
@@ -146,7 +142,6 @@ const widget_info = {
 			{name: 'b weight', id: 'bw', dfl: 1}
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
@@ -165,7 +160,7 @@ const widget_info = {
 			
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = ${a.code} * ${aw.code} + ${b.code} * ${bw.code};\n`);
-			return {out: {code: v, type: output_type}};
+			return {code: v, type: output_type};
 		},
 	},
 	'mul': {
@@ -176,7 +171,6 @@ const widget_info = {
 			{name: 'b', id: 'b'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
@@ -186,7 +180,7 @@ const widget_info = {
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
-			return {out: {code: v, type: output_type}};
+			return {code: v, type: output_type};
 		},
 	},
 	'pow': {
@@ -197,7 +191,6 @@ const widget_info = {
 			{name: 'b', id: 'b'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
@@ -207,7 +200,7 @@ const widget_info = {
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = pow(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
-			return {out: {code: v, type: output_type}};
+			return {code: v, type: output_type};
 		},
 	},
 	'mod': {
@@ -218,7 +211,6 @@ const widget_info = {
 			{name: 'b', id: 'b', dfl: '1'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let a = inputs.a;
 			let b = inputs.b;
@@ -229,7 +221,7 @@ const widget_info = {
 			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
 			let v = state.next_variable();
 			state.add_code(`${output_type} ${v} = mod(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
-			return {out: {code: v, type: output_type}};
+			return {code: v, type: output_type};
 		}
 	},
 	'square': {
@@ -242,7 +234,6 @@ const widget_info = {
 			{name: 'size', id: 'size', tooltip: 'radius of the square', dfl: '0.5'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let pos = inputs.pos;
 			let inside = inputs.inside;
@@ -277,7 +268,7 @@ const widget_info = {
 				break;
 			}
 			state.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
-			return {out: {code: v, type: output_type}};
+			return {code: v, type: output_type};
 		},
 	},
 	'circle': {
@@ -290,7 +281,6 @@ const widget_info = {
 			{name: 'size', id: 'size', dfl: '0.5', tooltip: 'radius of the circle'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let pos = inputs.pos;
 			let inside = inputs.inside;
@@ -310,7 +300,7 @@ const widget_info = {
 			let v = state.next_variable();
 			state.add_code(`${pos.type} ${a} = ${pos.code} / ${size.code};\n`);
 			state.add_code(`${output_type} ${v} = dot(${a}, ${a}) < 1.0 ? ${inside.code} : ${outside.code};\n`);
-			return {out: {code: v, type: output_type}};
+			return {code: v, type: output_type};
 		},
 	},
 	'compare': {
@@ -323,7 +313,6 @@ const widget_info = {
 			{name: 'if greater', dfl: '1', id: 'greater', tooltip: 'value to output if "Compare 1" ≥ "Compare 2"'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function(state, inputs) {
 			let cmp1 = inputs.cmp1;
 			let cmp2 = inputs.cmp2;
@@ -341,7 +330,7 @@ const widget_info = {
 			}
 			let v = state.next_variable();
 			state.add_code(`${type} ${v} = ${cmp1.code} < ${cmp2.code} ? ${less.code} : ${greater.code};\n`);
-			return {out: {code: v, type: type}};
+			return {code: v, type: type};
 		}
 	},
 	'sin': {
@@ -357,7 +346,6 @@ const widget_info = {
 		controls: [
 			{name: 'non-negative', id: 'nonneg', tooltip: 'make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp', type: 'checkbox'},
 		],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function (state, inputs) {
 			let t = inputs.t;
 			let period = inputs.period;
@@ -386,7 +374,7 @@ const widget_info = {
 				state.add_code(`${v} = ${v} * 0.5 + 0.5;\n`);
 			}
 			state.add_code(`${v} = ${v} * ${amplitude.code} + ${center.code};\n`);
-			return {out: {code: v, type: t.type}};
+			return {code: v, type: t.type};
 		}
 	},
 	'rot2': {
@@ -397,7 +385,6 @@ const widget_info = {
 			{name: 'θ', id: 'theta', tooltip: 'angle to rotate by (in radians)'},
 		],
 		controls: [{name: 'direction', id: 'dir', tooltip: 'direction of rotation', type: 'select:clockwise|counterclockwise'}],
-		outputs: [{name: 'out', id: 'out', tooltip: 'the rotated vector'}],
 		func: function (state, inputs) {
 			let v = inputs.v;
 			let theta = inputs.theta;
@@ -414,7 +401,7 @@ const widget_info = {
 			state.add_code(`float ${c} = cos(${theta.code});\n`);
 			state.add_code(`float ${s} = sin(${theta.code});\n`);
 			state.add_code(`vec2 ${w} = vec2(${c} * ${v.code}.x - ${s} * ${v.code}.y, ${s} * ${v.code}.x + ${c} * ${v.code}.y);\n`);
-			return {out: {code: w, type: 'vec2'}};
+			return {code: w, type: 'vec2'};
 		},
 	},
 	'hue': {
@@ -425,7 +412,6 @@ const widget_info = {
 			{name: 'shift', id: 'shift', tooltip: 'how much to shift hue by (0.5 = shift halfway across the rainbow)'},
 		],
 		controls: [],
-		outputs: [{name: 'out', id: 'out'}],
 		func: function (state, inputs) {
 			let color = inputs.color;
 			let shift = inputs.shift;
@@ -438,7 +424,7 @@ const widget_info = {
 			
 			let v = state.next_variable();
 			state.add_code(`vec3 ${v} = hue_shift(${color.code}, ${shift.code});\n`);
-			return {out: {code: v, type: 'vec3'}};
+			return {code: v, type: 'vec3'};
 		},
 	},
 	'clamp': {
@@ -448,9 +434,6 @@ const widget_info = {
 			{name: 'value', id: 'val', tooltip: 'input value'},
 			{name: 'minimum', id: 'min'},
 			{name: 'maximum', id: 'max'},
-		],
-		outputs: [
-			{name: 'out', id: 'out'}
 		],
 		controls: [],
 		func: function(state, inputs) {
@@ -468,7 +451,7 @@ const widget_info = {
 			}
 			let v = state.next_variable();
 			state.add_code(`${val.type} ${v} = clamp(${val.code}, ${min.code}, ${max.code});\n`);
-			return {out: {code: v, type: val.type}};
+			return {code: v, type: val.type};
 		}
 	}
 };
@@ -724,24 +707,10 @@ function get_widget_names() {
 
 
 function set_display_output_and_update_shader(to) {
-	for (let out of document.getElementsByClassName('out')) {
-		out.dataset.active = '0';
-	}
-	
 	display_output = to;
-	let parts = to.split('.');
-	if (parts.length !== 2 || !parts[0] || !parts[1]) {
-		display_output = null;
-		return;
+	for (let widget of document.getElementsByClassName('widget')) {
+		widget.dataset.display = to === get_widget_name(widget) ? '1' : '0';
 	}
-	
-	let widget = get_widget_by_name(parts[0]);
-	for (let out of widget.getElementsByClassName('out')) {
-		if (out.dataset.id === parts[1]) {
-			out.dataset.active = '1';
-		}
-	}
-	
 	update_shader();
 }
 
@@ -749,7 +718,6 @@ function add_widget(func) {
 	let info = widget_info[func];
 	console.assert(info !== undefined, 'bad widget name: ' + func);
 	console.assert('inputs' in info, `info for ${func} missing inputs member`);
-	console.assert('outputs' in info, `info for ${func} missing outputs member`);
 	console.assert('controls' in info, `info for ${func} missing controls member`);
 	console.assert('name' in info, `info for ${func} missing name member`);
 	let root = document.createElement('div');
@@ -776,24 +744,22 @@ function add_widget(func) {
 		if ('tooltip' in info) {
 			title.title = info.tooltip;
 		}
-		title.appendChild(document.createTextNode(info.name));
-		if (func !== 'output') {
-			let name_input = document.createElement('input');
-			name_input.placeholder = 'Name';
-			name_input.classList.add('widget-name');
-			
-			// generate unique name
-			let names = get_widget_names();
-			let i;
-			for (i = 1; ; i++) {
-				if (!names.has(func + i)) {
-					break;
-				}
+		title.appendChild(document.createTextNode(info.name + ' '));
+		let name_input = document.createElement('input');
+		name_input.placeholder = 'Name';
+		name_input.classList.add('widget-name');
+		
+		// generate unique name
+		let names = get_widget_names();
+		let i;
+		for (i = 1; ; i++) {
+			if (!names.has(func + i)) {
+				break;
 			}
-			name_input.value = func + i;
-			
-			title.appendChild(name_input);
 		}
+		name_input.value = func + i;
+		
+		title.appendChild(name_input);
 		root.appendChild(title);
 	}
 	
@@ -815,9 +781,9 @@ function add_widget(func) {
 			input_element.value = input.dfl;
 		}
 		label.appendChild(document.createTextNode(input.name));
-		container.appendChild(input_element);
-		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
+		container.appendChild(document.createTextNode(' '));
+		container.appendChild(input_element);
 		root.appendChild(container);
 		root.appendChild(document.createTextNode(' '));
 		
@@ -874,37 +840,18 @@ function add_widget(func) {
 		if ('tooltip' in control) {
 			label.title = control.tooltip;
 		}
-		container.appendChild(input);
-		container.appendChild(document.createTextNode(' '));
 		container.appendChild(label);
+		container.appendChild(document.createTextNode(' '));
+		container.appendChild(input);
 		root.appendChild(container);
 		root.appendChild(document.createTextNode(' '));
 	}
 	
-	{ // outputs
-		let container = document.createElement('div');
-		container.classList.add('outs');
-		info.outputs.forEach(function (output, i) {
-			if (i > 0) {
-				container.appendChild(document.createTextNode(', '));
-			}
-			let span = document.createElement('span');
-			span.classList.add('out');
-			span.dataset.id = output.id;
-			span.appendChild(document.createTextNode(output.name));
-			span.addEventListener('click', function (e) {
-				let name = get_widget_name(root);
-				set_display_output_and_update_shader(name + '.' + output.id);
-				e.preventDefault();
-			});
-			if ('tooltip' in output) {
-				span.title = output.tooltip;
-			}
-			container.appendChild(span);
-		});
-		root.appendChild(container);
-		root.appendChild(document.createTextNode(' '));
-	}
+	root.addEventListener('click', function (e) {
+		if (e.target === root)
+			set_display_output_and_update_shader(get_widget_name(root));
+		e.preventDefault();
+	});
 	
 	widgets_container.appendChild(root);
 	return root;
@@ -1028,8 +975,8 @@ class GLSLGenerationState {
 			}
 		}
 		
-		if (dot !== -1) {
-			input = input.substring(0, dot);
+		if (field !== 'out') {
+			return {error: `no such field: ${field}`};
 		}
 		let widget = this.widgets.get(input);
 		if (widget === undefined) {
@@ -1040,19 +987,19 @@ class GLSLGenerationState {
 			return {error: 'circular dependency at ' + input};
 		}
 		this.computing_inputs.add(input);
-		let value = this.compute_widget_output(widget, field);
+		let value = this.compute_widget_output(widget);
 		this.computing_inputs.delete(input);
 		return value;
 	}
 	
-	compute_widget_output(widget, output) {
-		if (!('outputs' in widget)) {
+	compute_widget_output(widget) {
+		if (!('output' in widget)) {
 			let info = widget_info[widget.func];
 			let inputs = {};
 			for (let input in widget.inputs) {
 				let value = this.compute_input(widget.inputs[input]);
 				if ('error' in value) {
-					widget.outputs = {error: value.error};
+					widget.output = {error: value.error};
 					return {error: value.error};
 				}
 				inputs[input] = value;	
@@ -1060,18 +1007,15 @@ class GLSLGenerationState {
 			for (let control in widget.controls) {
 				inputs[control] = widget.controls[control];
 			}
-			let outputs = info.func(this, inputs);
-			widget.outputs = outputs;
+			let output = info.func(this, inputs);
+			widget.output = output;
 		}
 		
-		let outputs = widget.outputs;
-		if ('error' in outputs) {
-			return {error: outputs.error};
+		let output = widget.output;
+		if ('error' in output) {
+			return {error: output.error};
 		}
-		if (!(output in outputs)) {
-			return {error: `function ${widget.func} has no output ${output}`};
-		}
-		return outputs[output];
+		return output;
 	}
 }
 

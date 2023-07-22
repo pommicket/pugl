@@ -93,40 +93,22 @@
 	input, button {
 		vertical-align: middle;
 		display: inline-block;
-		margin: 0.3em 0 0.3em 0.3em;
 		border: 2px solid var(--ui-border);
 		background-color: transparent;
 		color: white;
 	}
-	button {
-		height: 2.0em;
-	}
-	input[type=text], input[type=number] {
-		height: 1.5em;
-		font-size: inherit;
-	}
 	#ui input[type=color] {
 		padding: 0;
 	}
-	.in input {
+	.in input, .in select {
 		width: 5em;
 	}
-	.in, .out, .ins, .outs, .control, .widget-title {
+	.in, .ins, .control, .widget-title {
 		display: inline;
 	}
-	.in, .out, .control {
-		margin: 0.5em;
+	.in, .control {
+		margin-left: 0.5em;
 		white-space: nowrap;
-	}
-	.out {
-		font-weight: bold;
-		cursor: pointer;
-		
-		user-select: none; /* most browsers */
-		-webkit-user-select: none; /* old chrome/edge */
-		-moz-user-select: none; /* old firefox */
-		-khtml-user-select: none; /* konqueror apparently lol */
-		-ms-user-select: none; /* IE */
 	}
 	input[type="number"] {
 		/* disable increment/decrement buttons (firefox) */
@@ -143,11 +125,14 @@
 		display: block;
 		border-bottom: 2px solid #777;
 		padding: 0.5em 0;
-		background: #111;
 		position: relative;
+		cursor: pointer;
 	}
-	.out[data-active="1"] {
-		color: #ff0;
+	.widget:hover {
+		background: #fff3;
+	}
+	.widget[data-display="1"] {
+		background: #ff04;
 	}
 	.widget-title {
 		font-weight: bold;
@@ -174,7 +159,6 @@
 	}
 	.widget-choice:focus {
 		outline: 0;
-		background: #0f04;
 		z-index: 10;
 	}
 	#widget-choices {
