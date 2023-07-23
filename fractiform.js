@@ -73,7 +73,7 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 `).join('\n'),
 	`
 //! .name: Last frame
-//! .id: lf
+//! .id: prev
 //! .description: sample from the previous frame
 //! pos.description: position to sample — bottom-left corner is (−1, −1), top-right corner is (1, 1)
 //! wrap.name: wrap mode
@@ -244,6 +244,7 @@ vec2 rotate2D(vec2 v, float theta, int dir) {
 `,
 	`
 //! .name: Hue shift
+//! .id: hue
 //! .description: shift hue of color
 //! color.description: input color
 //! shift.description: how much to shift hue by (0.5 = shift halfway across the rainbow)
@@ -1310,7 +1311,14 @@ function import_widgets(string) {
 			if (element.type === 'checkbox') {
 				element.checked = value === 'true' || value === '1' ? 'checked' : '';
 			} else if (element.tagName === 'SELECT') {
-				element.value = element.getElementsByTagName('option')[value].value;
+				let options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
+				if (value >= 0 && value < options.length) {
+					element.value = options[value];
+				} else if (options.indexOf(value) !== -1) {
+					element.value = value;
+				} else {
+					return {error: `bad import string (unrecognized value ${value})`};
+				}
 			} else if (element.tagName === 'DIV') {
 				element.innerText = value;
 			} else {
@@ -1335,7 +1343,10 @@ function import_widgets(string) {
 }
 
 function import_widgets_from_local_storage() {
-	import_widgets(localStorage.getItem('widgets'));
+	const result = import_widgets(localStorage.getItem('widgets'));
+	if (result && result.error) {
+		show_error(result.error);
+	}
 }
 
 function export_widgets_to_local_storage() {
