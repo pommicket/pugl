@@ -42,10 +42,10 @@ let auto_update = true;
 
 let width = 1920, height = 1920;
 
-const widget_info = [
+const builtin_widgets = [
 	`
-//! name: Buffer
-//! description: outputs its input unaltered. useful for defining constants.
+//! .name: Buffer
+//! .description: outputs its input unaltered. useful for defining constants.
 //! x.name: input
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} buffer(${type} x) {
@@ -53,6 +53,7 @@ ${type} buffer(${type} x) {
 }`).join('\n'),
 	`
 //! .name: Mix
+//! .id: mix
 //! .description: weighted average of two inputs
 //! a.name: source 1
 //! a.default: 0
@@ -71,6 +72,7 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 `).join('\n'),
 	`
 //! .name: Last frame
+//! .id: lf
 //! .description: sample from the previous frame
 //! pos.description: position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)
 //! wrap.name: wrap mode
@@ -113,6 +115,7 @@ ${type} mul(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Power
+//! .id: pow
 //! .description: take one number to the power of another
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} pow_(${type} a, ${type} b) {
@@ -121,6 +124,7 @@ ${type} pow_(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Modulo
+//! .id: mod
 //! .description: wrap a value at a certain limit
 //! b.default: 1
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
@@ -174,6 +178,7 @@ ${type} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 `
 //! .name: Comparator
 //! .description: select between two inputs depending on a comparison between two values
+//! .id: cmp
 //! cmp1.name: compare 1
 //! cmp1.description: input to compare against "Compare 2"
 //! cmp2.name: compare 2
@@ -193,6 +198,7 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 	`
 //! .name: Sine wave
 //! .description: a wave based on the sin function
+//! .id: sin
 //! t.description: position in the wave
 //! t.default: .time
 //! period.description: period of the wave
@@ -218,6 +224,7 @@ ${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type}
 `).join('\n'),
 	`
 //! .name: Rotate 2D
+//! .id: rot2
 //! .description: rotate a 2-dimensional vector
 //! v.description: vector to rotate
 //! theta.name: θ
@@ -259,6 +266,7 @@ vec3 hue_shift(vec3 color, float shift) {
 `,
 	`
 //! .name: Clamp
+//! .id: clamp
 //! .description: clamp a value between a minimum and maximum
 //! val.name: value
 //! val.description: input value
@@ -270,6 +278,207 @@ ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 }
 `).join('\n'),
 ];
+
+let widget_info = {};
+
+class Parser {
+	constructor(string, line_number) {
+		this.string = string;
+		this.line_number = line_number;
+		this.i = 0;
+		this.error = null;
+	}
+	
+	set_error(e) {
+		if (!this.error)
+			this.error = {line: this.line_number, message: e};
+	}
+	
+	eof() {
+		this.skip_space();
+		return this.i >= this.string.length;
+	}
+	
+	has(c) {
+		this.skip_space();
+		return this.string.substring(this.i, this.i + c.length) === c;
+	}
+	
+	skip_space() {
+		while (this.i < this.string.length && this.string[this.i].match(/\s/)) {
+			if (this.string[this.i] === '\n')
+				this.line_number += 1;
+			this.i += 1;
+		}
+	}
+	
+	parse_type() {
+		this.skip_space();
+		const i = this.i;
+		for (const type of ['float', 'vec2', 'vec3', 'vec4', 'int']) {
+			if (this.string.substring(i, i + type.length) === type && this.string[i + type.length] === ' ') {
+				this.i += type.length + 1;
+				return type;
+			}
+		}
+		let end = this.string.indexOf(' ', i);
+		if (end === -1) end = this.string.length;
+		this.set_error(`no such type: ${this.string.substring(i, end)}`);
+	}
+	
+	parse_ident() {
+		this.skip_space();
+		if (this.eof()) {
+			this.set_error(`expected identifier, got EOF`);
+			return;
+		}
+		let first_char = this.string[this.i];
+		if (!first_char.match(/[a-zA-Z_]/)) {
+			this.set_error(`expected identifier, got '${first_char}'`);
+			return;
+		}
+		const start = this.i;
+		this.i += 1;
+		while (this.i < this.string.length && this.string[this.i].match(/[a-zA-Z0-9_]/)) {
+			this.i += 1;
+		}
+		return this.string.substring(start, this.i);
+	}
+	
+	expect(c) {
+		this.skip_space();
+		const got = this.string.substring(this.i, this.i + c.length);
+		if (got !== c) {
+			this.set_error(`expected ${c}, got ${got}`);
+		}
+		this.i += 1;
+	}
+	
+	advance() {
+		this.i += 1;
+	}
+}
+
+function install_widget(code) {
+	code = code.trim();
+	let lines = code.split('\n');
+	let name = undefined;
+	let description = '';
+	let id = undefined;
+	let def_start = undefined;
+	let error = undefined;
+	let params = new Map();
+	let param_regex = /^[a-zA-Z_][a-zA-Z0-9_]*/gu;
+	lines.forEach((line, index) => {
+		if (error) return;
+		if (def_start !== undefined) return;
+		
+		line = line.trim();
+		if (line.startsWith('//! ')) {
+			const parts = line.substring('//! '.length).split(': ');
+			if (parts.length !== 2) {
+				error = `on line ${index+1}: line must contain ": " exactly once`;
+				return;
+			}
+			const key = parts[0].trim();
+			const value = parts[1].trim();
+			if (key === '.name') {
+				name = value;
+			} else if (key === '.description') {
+				description = value;
+			} else if (key === '.id') {
+				id = value;
+			} else if (key.startsWith('.')) {
+				error = `on line ${index+1}: key ${key} not recognized`;
+				return;
+			} else {
+				const key_parts = key.split('.');
+				if (key_parts.length !== 2) {
+					error = `on line ${index+1}: expected key to be of form parameter.property, got ${key}`;
+					return;
+				}
+				const param_name = key_parts[0];
+				const property = key_parts[1];
+				if (!param_name.match(param_regex)) {
+					error = `on line ${index+1}: bad parameter name: ${param_name}`;
+				}
+				if (!params.has(param_name)) {
+					params.set(param_name, {});
+				}
+				const param = params.get(param_name);
+				switch (property) {
+				case 'id':
+				case 'name':
+				case 'description':
+				case 'default':
+				case 'type':
+					param[property] = value;
+					break;
+				default:
+					error = `on line ${index+1}: parameter property '${property}' not recognized`;
+					return;
+				}
+			}
+		} else if (line.startsWith('//!')) {
+			error = `on line ${index+1}: missing space after //!`;
+		} else if (line.startsWith('//')) {
+		} else {
+			def_start = index;
+			return;
+		}
+	});
+	if (error) {
+		return {error};
+	}
+	lines = lines.slice(def_start);
+	if (lines.some((x) => x.startsWith('//!'))) {
+		return {error: '//! appears after first function definition'};
+	}
+	lines = lines.map((x) => {
+		x = x.trim();
+		if (x.startsWith('//')) {
+			return '';
+		}
+		return x;
+	});
+	const parser = new Parser(lines.join('\n'), def_start + 1);
+	while (!parser.error && !parser.eof()) {
+		const definition_start = parser.i;
+		let return_type = parser.parse_type();
+		let name = parser.parse_ident();
+		let definition_params = [];
+		parser.expect('(');
+		while (!parser.eof() && !parser.has(')')) {
+			if (parser.has(',')) parser.expect(',');
+			const type = parser.parse_type();
+			const name = parser.parse_ident();
+			definition_params.push({type, name});
+		}
+		parser.expect(')');
+		parser.expect('{');
+		let brace_depth = 1;
+		while (!parser.eof() && brace_depth > 0) {
+			if (parser.has('{'))
+				brace_depth += 1;
+			if (parser.has('}'))
+				brace_depth -= 1;
+			parser.advance();
+		}
+		const definition_end = parser.i;
+		console.log('>>>',parser.string.substring(definition_start,definition_end));
+	}
+	if (parser.error) {
+		const error = parser.error;
+		return {error: `on line ${error.line}: ${error.message}`};
+	}
+}
+
+for (const code of builtin_widgets) {
+	const result = install_widget(code);
+	if (result && result.error) {
+		console.error(result.error);
+	}
+}
 
 let widget_ids_sorted_by_name = [];
 for (let id in widget_info) { 
