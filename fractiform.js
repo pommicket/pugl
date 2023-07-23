@@ -47,6 +47,7 @@ const builtin_widgets = [
 //! .name: Buffer
 //! .description: outputs its input unaltered. useful for defining constants.
 //! x.name: input
+//! x.id: input
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} buffer(${type} x) {
 	return x;
@@ -216,9 +217,9 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 //! nonneg.type: checkbox
 
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
-${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, ${type} nonneg) {
+${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
 	${type} v = sin((t / period - phase) * 6.2831853);
-	if (nonneg) v = v * 0.5 + 0.5;
+	if (nonneg != 0) v = v * 0.5 + 0.5;
 	return v;
 }
 `).join('\n'),
@@ -268,18 +269,19 @@ vec3 hue_shift(vec3 color, float shift) {
 //! .name: Clamp
 //! .id: clamp
 //! .description: clamp a value between a minimum and maximum
-//! val.name: value
-//! val.description: input value
+//! x.name: value
+//! x.id: val
+//! x.description: input value
 //! minimum.name: min
+//! minimum.id: min
 //! maximum.name: max
+//! maximum.id: max
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 	return clamp(x, minimum, maximum);
 }
 `).join('\n'),
 ];
-
-let widget_info = {};
 
 class Parser {
 	constructor(string, line_number) {
@@ -359,7 +361,7 @@ class Parser {
 	}
 }
 
-function install_widget(code) {
+function parse_widget_definition(code) {
 	code = code.trim();
 	let lines = code.split('\n');
 	let name = undefined;
@@ -441,11 +443,20 @@ function install_widget(code) {
 		}
 		return x;
 	});
+	
 	const parser = new Parser(lines.join('\n'), def_start + 1);
+	const definitions = [];
+	let function_name;
 	while (!parser.error && !parser.eof()) {
 		const definition_start = parser.i;
 		let return_type = parser.parse_type();
-		let name = parser.parse_ident();
+		let fname = parser.parse_ident();
+		if (!function_name) function_name = fname;
+		if (!parser.error && fname !== function_name) {
+			return {error: `function defined as both '${function_name}' and '${fname}'`};
+		}
+		if (!id) id = function_name;
+		
 		let definition_params = [];
 		parser.expect('(');
 		while (!parser.eof() && !parser.has(')')) {
@@ -453,7 +464,49 @@ function install_widget(code) {
 			const type = parser.parse_type();
 			const name = parser.parse_ident();
 			definition_params.push({type, name});
+			
+			if (!params.has(name)) {
+				if (!definitions.size) {
+					params.set(name, {});
+				} else if (!parser.error) {
+					return {error: `parameter ${name} does not exist`};
+				}
+			}
 		}
+		
+		// we have all parameters now — fill out missing fields
+		if (!definitions.size) {
+			for (const param_name of params.keys()) {
+				const param = params.get(param_name);
+				if (!param.id) param.id = param_name;
+				if (!param.name) param.name = param.id;
+				if (!param.description) param.description = '';
+			}
+		}
+		
+		const input_types = new Map();
+		const param_order = new Map();
+		definition_params.forEach((p, index) => {
+			const is_control = p.type === 'int';
+			const param = params.get(p.name);
+			if (param.type && !is_control) {
+				parser.set_error(`parameter ${p.name} should have type int since it's a ${param.type}, but it has type ${p.type}`);
+			}
+			if (!param.type && is_control) {
+				parser.set_error(`parameter ${p.name} has type int, so you should set a type for it, e.g. //! ${p.name}.type: checkbox`);
+			}
+			if (!is_control) {
+				input_types.set(param.id, p.type);
+			}
+			param_order.set(param.id, index);
+		});
+		for (const param of params.values()) {
+			if (!input_types.has(param.id) && !param.type) {
+				parser.set_error(`parameter ${param.id} not specified in definition of ${function_name}`);
+			}
+		}
+		
+		
 		parser.expect(')');
 		parser.expect('{');
 		let brace_depth = 1;
@@ -465,28 +518,59 @@ function install_widget(code) {
 			parser.advance();
 		}
 		const definition_end = parser.i;
-		console.log('>>>',parser.string.substring(definition_start,definition_end));
+		const definition = parser.string.substring(definition_start, definition_end);
+		definitions.push({
+			input_types,
+			param_order,
+			return_type,
+			code: definition
+		});
 	}
 	if (parser.error) {
 		const error = parser.error;
 		return {error: `on line ${error.line}: ${error.message}`};
 	}
+	if (!name)
+		name = id;
+	
+	const inputs = new Map();
+	const controls = new Map();
+	for (const param of params.values()) {
+		if (param.type) {
+			controls.set(param.id, param);
+		} else {
+			inputs.set(param.id, param);
+		}
+	}
+	
+	return {
+		id,
+		function_name,
+		name,
+		inputs,
+		controls,
+		description,
+		definitions
+	};
 }
 
+let widget_info = new Map();
 for (const code of builtin_widgets) {
-	const result = install_widget(code);
+	const result = parse_widget_definition(code);
 	if (result && result.error) {
 		console.error(result.error);
+	} else {
+		widget_info.set(result.id, result);
 	}
 }
 
 let widget_ids_sorted_by_name = [];
-for (let id in widget_info) { 
-	widget_ids_sorted_by_name.push(id);
+for (const widget of widget_info.keys()) {
+	widget_ids_sorted_by_name.push(widget);
 }
 widget_ids_sorted_by_name.sort(function (a, b) {
-	a = widget_info[a].name;
-	b = widget_info[b].name;
+	a = widget_info.get(a).name;
+	b = widget_info.get(b).name;
 	return a.localeCompare(b);
 });
 
@@ -567,12 +651,10 @@ uniform float ff_time;
 uniform vec2 ff_texture_size;
 varying vec2 ff_pos;
 
-vec3 get_color() {
-	${source}
-}
+${source}
 
 void main() {
-	gl_FragColor = vec4(get_color(), 1.0);
+	gl_FragColor = vec4(ff_get_color(), 1.0);
 }
 `;
 	const vertex_code = `
@@ -716,11 +798,8 @@ function set_display_output_and_update_shader(to) {
 }
 
 function add_widget(func) {
-	let info = widget_info[func];
-	console.assert(info !== undefined, 'bad widget name: ' + func);
-	console.assert('inputs' in info, `info for ${func} missing inputs member`);
-	console.assert('controls' in info, `info for ${func} missing controls member`);
-	console.assert('name' in info, `info for ${func} missing name member`);
+	let info = widget_info.get(func);
+	console.assert(info !== undefined, 'bad widget ID: ' + func);
 	let root = document.createElement('div');
 	root.dataset.func = func;
 	root.classList.add('widget');
@@ -765,7 +844,7 @@ function add_widget(func) {
 	}
 	
 	// inputs
-	info.inputs.forEach(function (input) {
+	for (const input of info.inputs.values()) {
 		let container = document.createElement('div');
 		container.classList.add('in');
 		console.assert('id' in input, 'input missing ID', input);
@@ -796,10 +875,10 @@ function add_widget(func) {
 				update_shader();
 			}
 		});
-	});
+	}
 	
 	// controls
-	for (let control of info.controls) {
+	for (const control of info.controls.values()) {
 		let container = document.createElement('div');
 		container.classList.add('control');
 		console.assert('id' in control, 'control missing ID', control);
@@ -864,6 +943,7 @@ function add_widget(func) {
 class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
+		this.functions = new Set();
 		this.code = [];
 		this.computing_inputs = new Set();
 		this.variable = 0;
@@ -879,7 +959,12 @@ class GLSLGenerationState {
 	}
 	
 	get_code() {
-		return this.code.join('');
+		return `
+${Array.from(this.functions).join('')}
+vec3 ff_get_color() {
+${this.code.join('')}
+}`;
+
 	}
 	
 	compute_input(input) {
@@ -998,21 +1083,66 @@ class GLSLGenerationState {
 	
 	compute_widget_output(widget) {
 		if (!('output' in widget)) {
-			let info = widget_info[widget.func];
-			let inputs = {};
-			for (let input in widget.inputs) {
+			const info = widget_info.get(widget.func);
+			const args = new Map();
+			const input_types = new Map();
+			for (const input in widget.inputs) {
 				let value = this.compute_input(widget.inputs[input]);
 				if ('error' in value) {
 					widget.output = {error: value.error};
 					return {error: value.error};
 				}
-				inputs[input] = value;	
+				args.set(input, value.code);
+				input_types.set(input, value.type);
 			}
-			for (let control in widget.controls) {
-				inputs[control] = widget.controls[control];
+			for (const control in widget.controls) {
+				args.set(control, widget.controls[control]);
 			}
-			let output = info.func(this, inputs);
-			widget.output = output;
+			
+			let best_definition = undefined;
+			let best_score = -Infinity;
+			for (const definition of info.definitions) {
+				if (definition.input_types.length !== input_types.length)
+					continue;
+				if (definition.param_order.length !== args.length)
+					continue;
+				let score = 0;
+				for (const [input_name, input_type] of definition.input_types) {
+					let got_type = input_types.get(input_name);
+					if (got_type === input_type) {
+						score += 1;
+					} else if (got_type === 'float') {
+						// implicit conversion
+					} else {
+						score = -Infinity;
+					}
+				}
+				if (score > best_score) {
+					best_definition = definition;
+				}
+			}
+			
+			if (!best_definition) {
+				let s = [];
+				for (const [n, t] of input_types) {
+					s.push(`${n}:${t}`);
+				}
+				return {error: `bad types for ${info.name}: ${s.join(', ')}`};
+			}
+			
+			const output_var = this.next_variable();
+			const definition = best_definition;
+			const args_code = new Array(args.length);
+			for (const [arg_name, arg_code] of args) {
+				args_code[definition.param_order.get(arg_name)] = arg_code;
+			}
+			const type = definition.return_type;
+			this.functions.add(definition.code);
+			this.add_code(`${type} ${output_var} = ${info.function_name}(${args_code.join(',')});\n`);
+			widget.output = {
+				code: output_var,
+				type,
+			};
 		}
 		
 		let output = widget.output;
@@ -1033,11 +1163,11 @@ function parse_widgets() {
 		}
 		let inputs = {};
 		let controls = {};
-		for (let input of widget_div.getElementsByClassName('in')) {
+		for (const input of widget_div.getElementsByClassName('in')) {
 			let id = input.dataset.id;
 			inputs[id] = input.getElementsByClassName('entry')[0].innerText;
 		}
-		for (let control of widget_div.getElementsByClassName('control')) {
+		for (const control of widget_div.getElementsByClassName('control')) {
 			let id = control.dataset.id;
 			let input = control.getElementsByClassName('control-input')[0];
 			let value;
@@ -1111,7 +1241,7 @@ function import_widgets(string) {
 			let parts = widget_str.split(';');
 			let func = parts[0];
 			let widget = {name: null, func: func, inputs: {}, controls: {}};
-			let info = widget_info[func];
+			const info = widget_info.get(func);
 			parts.splice(0, 1);
 			for (let part of parts) {
 				let kv = part.split(':');
@@ -1154,7 +1284,7 @@ function import_widgets(string) {
 	widgets_container.innerHTML = '';
 	for (let widget of widgets) {
 		let name = widget.name;
-		if (!(widget.func in widget_info)) {
+		if (!widget_info.has(widget.func)) {
 			return {error: `bad import string (widget type '${widget.func}' does not exist)`};
 		}
 		let element = add_widget(widget.func);
@@ -1177,13 +1307,13 @@ function import_widgets(string) {
 				console.error('bad element', element);
 			}
 		}
-		for (let input in widget.inputs) {
+		for (const input in widget.inputs) {
 			let container = Array.from(element.getElementsByClassName('in')).find(
 				function (e) { return e.dataset.id === input; }
 			);
 			assign_value(container, widget.inputs[input]);
 		}
-		for (let control in widget.controls) {
+		for (const control in widget.controls) {
 			let container = Array.from(element.getElementsByClassName('control')).find(
 				function (e) { return e.dataset.id === control; }
 			);
@@ -1249,9 +1379,10 @@ function update_widget_choices() {
 	let search_term = widget_search.value.toLowerCase();
 	let choices = widget_choices.getElementsByClassName('widget-choice');
 	widget_ids_sorted_by_name.forEach(function (id, i) {
-		let name = widget_info[id].name;
+		let name = widget_info.get(id).name;
 		let choice = choices[i];
 		let shown = name.toLowerCase().indexOf(search_term) !== -1;
+		// TODO
 	});
 }
 
@@ -1349,14 +1480,15 @@ void main() {
 	sampler_texture = gl.createTexture();
 	
 	// add widget buttons
-	for (let id of widget_ids_sorted_by_name) {
-		let widget = widget_info[id];
+	for (const id of widget_ids_sorted_by_name) {
+		let widget = widget_info.get(id);
 		let button = document.createElement('button');
 		button.classList.add('widget-choice');
-		if ('tooltip' in widget) {
-			button.title = widget.tooltip;
+		if ('description' in widget) {
+			button.title = widget.description;
 		}
 		button.appendChild(document.createTextNode(widget.name));
+		button.dataset.id = id;
 		widget_choices.appendChild(button);
 		button.addEventListener('click', function (e) {
 			add_widget(id);
