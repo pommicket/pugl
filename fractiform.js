@@ -75,19 +75,20 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 //! .name: Last frame
 //! .id: lf
 //! .description: sample from the previous frame
-//! pos.description: position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)
+//! pos.description: position to sample — bottom-left corner is (−1, −1), top-right corner is (1, 1)
 //! wrap.name: wrap mode
 //! wrap.type: select:clamp|wrap
-//! wrap.description: how to deal with the input components if they go outside [0, 1]
+//! wrap.description: how to deal with the input components if they go outside [−1, 1]
 //! sample.name: sample mode
 //! sample.type: select:linear|nearest
 //! sample.description: how positions in between pixels should be sampled
 
 vec3 last_frame(vec2 pos, int wrap, int sample) {
+	pos = pos * 0.5 + 0.5;
 	if (wrap == 0)
-		pos = mod(pos, 1.0);
-	else if (wrap == 1)
 		pos = clamp(pos, 0.0, 1.0);
+	else if (wrap == 1)
+		pos = mod(pos, 1.0);
 	if (sample == 1)
 		pos = floor(0.5 + pos * ff_texture_size) * (1.0 / ff_texture_size);
 	return texture2D(ff_texture, pos).xyz;
@@ -127,6 +128,7 @@ ${type} pow_(${type} a, ${type} b) {
 //! .name: Modulo
 //! .id: mod
 //! .description: wrap a value at a certain limit
+//! a.name: a
 //! b.default: 1
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} mod_(${type} a, ${type} b) {
@@ -150,8 +152,8 @@ ${type} mod_(${type} a, ${type} b) {
 	let type = x[0];
 	let max = x[1];
 	return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
-${type} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
-	${type} a = pos / size;
+${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
+	${type} a = abs(pos) / size;
 	return ${max} < 1.0 ? inside : outside;
 }
 `).join('\n');
@@ -170,7 +172,7 @@ ${type} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 
 `+ ['float', 'vec2', 'vec3', 'vec4'].map((type) => {
 	return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
-${type} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
+${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	pos /= size;
 	return dot(pos, pos) < 1.0 ? inside : outside;
 }
@@ -371,6 +373,7 @@ function parse_widget_definition(code) {
 	let error = undefined;
 	let params = new Map();
 	let param_regex = /^[a-zA-Z_][a-zA-Z0-9_]*/gu;
+	
 	lines.forEach((line, index) => {
 		if (error) return;
 		if (def_start !== undefined) return;
@@ -533,22 +536,11 @@ function parse_widget_definition(code) {
 	if (!name)
 		name = id;
 	
-	const inputs = new Map();
-	const controls = new Map();
-	for (const param of params.values()) {
-		if (param.type) {
-			controls.set(param.id, param);
-		} else {
-			inputs.set(param.id, param);
-		}
-	}
-	
 	return {
 		id,
 		function_name,
 		name,
-		inputs,
-		controls,
+		params,
 		description,
 		definitions
 	};
@@ -671,7 +663,7 @@ void main() {
 function on_key_press(e) {
 	update_key_modifiers_from_event(e);
 	let code = e.keyCode;
-	if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
+	if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.isContentEditable) {
 		return;
 	}
 	console.log('key press', code);
@@ -821,8 +813,8 @@ function add_widget(func) {
 	{ // title
 		let title = document.createElement('div');
 		title.classList.add('widget-title');
-		if ('tooltip' in info) {
-			title.title = info.tooltip;
+		if (info.description) {
+			title.title = info.description;
 		}
 		title.appendChild(document.createTextNode(info.name + ' '));
 		let name_input = document.createElement('input');
@@ -843,96 +835,102 @@ function add_widget(func) {
 		root.appendChild(title);
 	}
 	
-	// inputs
-	for (const input of info.inputs.values()) {
-		let container = document.createElement('div');
-		container.classList.add('in');
-		console.assert('id' in input, 'input missing ID', input);
-		container.dataset.id = input.id;
-		let input_element = document.createElement('div');
-		input_element.contentEditable = true;
-		input_element.classList.add('entry');
-		input_element.appendChild(document.createElement('br'));
-		input_element.type = 'text';
-		input_element.id = 'gen-input-' + (++html_id);
-		let label = document.createElement('label');
-		label.htmlFor = input_element.id;
-		if ('tooltip' in input) {
-			label.title = input.tooltip;
-		}
-		if ('dfl' in input) {
-			input_element.innerText = input.dfl;
-		}
-		label.appendChild(document.createTextNode(input.name));
-		container.appendChild(label);
-		container.appendChild(document.createTextNode('='));
-		container.appendChild(input_element);
-		root.appendChild(container);
-		root.appendChild(document.createTextNode(' '));
-		
-		input_element.addEventListener('change', function (e) {
-			if (auto_update) {
-				update_shader();
-			}
-		});
-	}
-	
-	// controls
-	for (const control of info.controls.values()) {
-		let container = document.createElement('div');
-		container.classList.add('control');
-		console.assert('id' in control, 'control missing ID', control);
-		container.dataset.id = control.id;
-		let type = control.type;
-		let input;
-		if (type === 'checkbox') {
-			input = document.createElement('input');
-			input.type = 'checkbox';
-			if (control.dfl) {
-				input.checked = 'checked';
-			}
-		} else if (type.startsWith('select:')) {
-			let options = type.substring('select:'.length).split('|');
-			
-			input = document.createElement('select');
-			for (let opt of options) {
-				let option = document.createElement('option');
-				option.appendChild(document.createTextNode(opt));
-				option.value = opt;
-				input.appendChild(option);
+	// parameters
+	for (const param of info.params.values()) {
+		if (param.type) {
+			// control
+			let container = document.createElement('div');
+			container.classList.add('control');
+			container.dataset.id = param.id;
+			let type = param.type;
+			let input;
+			if (type === 'checkbox') {
+				input = document.createElement('input');
+				input.type = 'checkbox';
+				if (param['default']) {
+					input.checked = 'checked';
+				}
+			} else if (type.startsWith('select:')) {
+				let options = type.substring('select:'.length).split('|');
+				
+				input = document.createElement('select');
+				for (let opt of options) {
+					let option = document.createElement('option');
+					option.appendChild(document.createTextNode(opt));
+					option.value = opt;
+					input.appendChild(option);
+				}
+				
+				if (param['default']) {
+					input.value = param['default'];
+				}
+			} else {
+				console.error('bad control type');
 			}
 			
-			if ('dfl' in control) {
-				input.value = dfl;
+			input.addEventListener('change', function (e) {
+				if (auto_update) {
+					update_shader();
+				}
+			});
+			
+			input.id = 'gen-control-' + (++html_id);
+			input.classList.add('control-input');
+			let label = document.createElement('label');
+			label.htmlFor = input.id;
+			label.appendChild(document.createTextNode(param.name));
+			if (param.description) {
+				container.title = param.description;
 			}
+			container.appendChild(label);
+			container.appendChild(document.createTextNode('='));
+			container.appendChild(input);
+			root.appendChild(container);
+			root.appendChild(document.createTextNode(' '));
 		} else {
-			console.error('bad control type');
-		}
-		
-		input.addEventListener('change', function (e) {
-			if (auto_update) {
-				update_shader();
+			// input
+			let container = document.createElement('div');
+			container.classList.add('in');
+			container.dataset.id = param.id;
+			let input_element = document.createElement('div');
+			input_element.contentEditable = true;
+			input_element.addEventListener('keydown', (e) => {
+				if (e.keyCode === 13) {
+					input_element.blur();
+					e.preventDefault();
+				}
+			})
+			input_element.classList.add('entry');
+			input_element.appendChild(document.createElement('br'));
+			input_element.type = 'text';
+			input_element.id = 'gen-input-' + (++html_id);
+			let label = document.createElement('label');
+			label.htmlFor = input_element.id;
+			if (param.description) {
+				container.title = param.description;
 			}
-		});
-		
-		input.id = 'gen-control-' + (++html_id);
-		input.classList.add('control-input');
-		let label = document.createElement('label');
-		label.htmlFor = input.id;
-		label.appendChild(document.createTextNode(control.name));
-		if ('tooltip' in control) {
-			label.title = control.tooltip;
+			if (param['default']) {
+				input_element.innerText = param['default'];
+			}
+			label.appendChild(document.createTextNode(param.name));
+			container.appendChild(label);
+			container.appendChild(document.createTextNode('='));
+			container.appendChild(input_element);
+			root.appendChild(container);
+			root.appendChild(document.createTextNode(' '));
+			
+			input_element.addEventListener('change', (e) => {
+				if (auto_update) {
+					update_shader();
+				}
+			});
 		}
-		container.appendChild(label);
-		container.appendChild(document.createTextNode('='));
-		container.appendChild(input);
-		root.appendChild(container);
-		root.appendChild(document.createTextNode(' '));
 	}
 	
-	root.addEventListener('click', function (e) {
-		if (e.target === root)
-			set_display_output_and_update_shader(get_widget_name(root));
+	root.addEventListener('click', (e) => {
+		if (e.target.tagName === 'INPUT' || e.target.isContentEditable || e.target.tagName === 'SELECT')
+			return;
+		set_display_output_and_update_shader(get_widget_name(root));
 		e.preventDefault();
 	});
 	
@@ -1054,11 +1052,11 @@ ${this.code.join('')}
 		if (dot === 0) {
 			switch (input) {
 			case '.pos':
-				return {code: 'pos', type: 'vec2'};
+				return {code: 'ff_pos', type: 'vec2'};
 			case '.pos01':
-				return {code: '(0.5+0.5*pos)', type: 'vec2'};
+				return {code: '(0.5+0.5*ff_pos)', type: 'vec2'};
 			case '.time':
-				return {code: 'u_time', type: 'float'};
+				return {code: 'ff_time', type: 'float'};
 			default:
 				return {error: `no such builtin: ${input}`};
 			}
@@ -1086,8 +1084,9 @@ ${this.code.join('')}
 			const info = widget_info.get(widget.func);
 			const args = new Map();
 			const input_types = new Map();
-			for (const input in widget.inputs) {
-				let value = this.compute_input(widget.inputs[input]);
+			for (let [input, value] of widget.inputs) {
+				console.log(input,value);
+				value = this.compute_input(value);
 				if ('error' in value) {
 					widget.output = {error: value.error};
 					return {error: value.error};
@@ -1095,8 +1094,8 @@ ${this.code.join('')}
 				args.set(input, value.code);
 				input_types.set(input, value.type);
 			}
-			for (const control in widget.controls) {
-				args.set(control, widget.controls[control]);
+			for (let [control, value] of widget.controls) {
+				args.set(control, value);
 			}
 			
 			let best_definition = undefined;
@@ -1133,7 +1132,14 @@ ${this.code.join('')}
 			const output_var = this.next_variable();
 			const definition = best_definition;
 			const args_code = new Array(args.length);
-			for (const [arg_name, arg_code] of args) {
+			for (let [arg_name, arg_code] of args) {
+				if (definition.input_types.has(arg_name)) {
+					const expected_type = definition.input_types.get(arg_name);
+					const got_type = input_types.get(arg_name);
+					if (got_type !== expected_type) {
+						arg_code = `${expected_type}(${arg_code})`;
+					}
+				}
 				args_code[definition.param_order.get(arg_name)] = arg_code;
 			}
 			const type = definition.return_type;
@@ -1161,11 +1167,11 @@ function parse_widgets() {
 		if (!name) {
 			return {error: `widget has no name. please give it one.`};
 		}
-		let inputs = {};
-		let controls = {};
+		let inputs = new Map();
+		let controls = new Map();
 		for (const input of widget_div.getElementsByClassName('in')) {
 			let id = input.dataset.id;
-			inputs[id] = input.getElementsByClassName('entry')[0].innerText;
+			inputs.set(id, input.getElementsByClassName('entry')[0].innerText);
 		}
 		for (const control of widget_div.getElementsByClassName('control')) {
 			let id = control.dataset.id;
@@ -1173,18 +1179,22 @@ function parse_widgets() {
 			let value;
 			if (input.tagName === 'INPUT' && input.type == 'checkbox') {
 				value = input.checked;
+			} else if (input.tagName === 'SELECT') {
+				value = Array.from(input.getElementsByTagName('option'))
+					.map((o) => o.value)
+					.indexOf(input.value);
 			} else {
-				value = input.value;
+				console.error(`unrecognized control tag: ${input.tagName}`);
 			}
-			controls[id] = value;
+			controls.set(id, value);
 		}
 		if (widgets.has(name)) {
 			return {error: `duplicate widget name: ${name}`};
 		}
 		widgets.set(name, {
-			func: func,
-			inputs: inputs,
-			controls: controls,
+			func,
+			inputs,
+			controls,
 		});
 	}
 	return widgets;
@@ -1205,18 +1215,18 @@ function export_widgets() {
 		data.push('n:');
 		data.push(name);
 		data.push(';');
-		for (let input in widget.inputs) {
+		for (const [input, value] of widget.inputs) {
 			data.push('i');
 			data.push(input);
 			data.push(':');
-			data.push(widget.inputs[input]);
+			data.push(value);
 			data.push(';');
 		}
-		for (let control in widget.controls) {
+		for (const [control, value] of widget.controls) {
 			data.push('c');
 			data.push(control);
 			data.push(':');
-			data.push(widget.controls[control]);
+			data.push(value);
 			data.push(';');
 		}
 		data.pop(); // remove terminal separator
@@ -1232,7 +1242,7 @@ function import_widgets(string) {
 	let output = null;
 	if (string) {
 		console.log(string);
-		for (let widget_str of string.split(';;')) {
+		for (const widget_str of string.split(';;')) {
 			if (widget_str.startsWith('_out=')) {
 				output = widget_str.substring('_out='.length);
 				continue;
@@ -1240,10 +1250,10 @@ function import_widgets(string) {
 			
 			let parts = widget_str.split(';');
 			let func = parts[0];
-			let widget = {name: null, func: func, inputs: {}, controls: {}};
+			let widget = {name: null, func, inputs: new Map(), controls: new Map()};
 			const info = widget_info.get(func);
 			parts.splice(0, 1);
-			for (let part of parts) {
+			for (const part of parts) {
 				let kv = part.split(':');
 				if (kv.length !== 2) {
 					return {error: `bad key-value pair (kv count ${kv.length})`};
@@ -1256,10 +1266,10 @@ function import_widgets(string) {
 					widget.name = value;
 				} else if (type === 'i') {
 					// input
-					widget.inputs[key] = value;
+					widget.inputs.set(key, value);
 				} else if (type === 'c') {
 					// control
-					widget.controls[key] = value;
+					widget.controls.set(key, value);
 				} else {
 					return {error: `bad widget part type: '${type}'`};
 				}
@@ -1275,8 +1285,8 @@ function import_widgets(string) {
 			{
 				name: 'output',
 				func: 'buffer',
-				inputs: {input: '#acabff'},
-				controls: {},
+				inputs: Map.from(['input', '#acabff']),
+				controls: new Map(),
 			}
 		];
 	}
@@ -1299,25 +1309,25 @@ function import_widgets(string) {
 			}
 			if (element.type === 'checkbox') {
 				element.checked = value === 'true' || value === '1' ? 'checked' : '';
-			} else if (element.tagName === 'INPUT' || element.tagName === 'SELECT') {
-				element.value = value;
+			} else if (element.tagName === 'SELECT') {
+				element.value = element.getElementsByTagName('option')[value].value;
 			} else if (element.tagName === 'DIV') {
 				element.innerText = value;
 			} else {
 				console.error('bad element', element);
 			}
 		}
-		for (const input in widget.inputs) {
+		for (const [input, value] of widget.inputs) {
 			let container = Array.from(element.getElementsByClassName('in')).find(
 				function (e) { return e.dataset.id === input; }
 			);
-			assign_value(container, widget.inputs[input]);
+			assign_value(container, value);
 		}
-		for (const control in widget.controls) {
+		for (const [control, value] of widget.controls) {
 			let container = Array.from(element.getElementsByClassName('control')).find(
 				function (e) { return e.dataset.id === control; }
 			);
-			assign_value(container, widget.controls[control]);
+			assign_value(container, value);
 		}
 	};
 	
