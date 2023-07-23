@@ -42,418 +42,235 @@ let auto_update = true;
 
 let width = 1920, height = 1920;
 
-const widget_info = {
-	'buffer': {
-		name: 'Buffer',
-		tooltip: 'outputs its input unaltered. useful for defining constants.',
-		inputs: [{name: 'in', id: 'input'}],
-		controls: [],
-		func: function(state, inputs) {
-			return inputs.input;
-		},
-	},
-	'mix': {
-		name: 'Mix',
-		tooltip: 'weighted average of two inputs',
-		inputs: [
-			{name: 'source 1', id: 'src1', dfl: 0},
-			{name: 'source 2', id: 'src2', dfl: 1},
-			{name: 'mix', id: 'mix', dfl: 0.5},
-		],
-		controls: [
-			{name: 'clamp mix', id: 'clamp', type: 'checkbox', tooltip: 'clamp the mix input to the [0, 1] range'}
-		],
-		func: function(state, inputs) {
-			let src1 = inputs.src1;
-			let src2 = inputs.src2;
-			let mix = inputs.mix;
-			let types_good = type_base_type(src1.type) === 'float' &&
-				type_base_type(src2.type) === 'float' &&
-				type_base_type(mix.type) === 'float' &&
-				type_component_count(src1.type) === type_component_count(src2.type) &&
-				(type_component_count(mix.type) === type_component_count(src1.type) ||
-				 type_component_count(mix.type) === 1);
-			if (!types_good) {
-				return {error: 'bad types for mix: ' + [src1, src2, mix].map(function (x) { return x.type; }).join(', ')};
-			}
-			
-			let mix_code = mix.code;
-			if (inputs.clamp) {
-				mix_code = `clamp(${mix_code},0.0,1.0)`;
-			}
-			
-			let type = src1.type;
-			let v = state.next_variable();
-			state.add_code(`${type} ${v} = mix(${src1.code}, ${src2.code}, ${mix_code});\n`);
-			return {type: type, code: v};
-		},
-	},
-	'prev': {
-		name: 'Last frame',
-		tooltip: 'sample from the previous frame',
-		inputs: [
-			{name: 'pos', id: 'pos', tooltip: 'position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)'}
-		],
-		controls: [
-			{name: 'wrap mode', id: 'wrap', type: 'select:clamp|wrap', tooltip: 'how to deal with the input components if they go outside [0, 1]'},
-			{name: 'sample mode', id: 'sample', type: 'select:linear|nearest', tooltip: 'how positions in between pixels should be sampled'},
-		],
-		func: function(state, inputs) {
-			let pos = inputs.pos;
-			if (pos.type !== 'vec2') {
-				return {error: 'bad type for sample position: ' + pos.type};
-			}
-			let vpos = state.next_variable();
-			state.add_code(`vec2 ${vpos} = ${pos.code};\n`);
-			switch (inputs.wrap) {
-			case 'wrap':
-				state.add_code(`${vpos} = mod(${vpos}, 1.0);\n`);
-				break;
-			case 'clamp':
-				state.add_code(`${vpos} = clamp(${vpos}, 0.0, 1.0);\n`);
-				break;
-			default:
-				console.error('bad wrap mode:', inputs.wrap);
-				break;
-			}
-			
-			switch (inputs.sample) {
-			case 'linear': break;
-			case 'nearest':
-				state.add_code(`${vpos} = floor(0.5 + ${vpos} * u_texture_size) * (1.0 / u_texture_size);\n`);
-				break;
-			default:
-				console.error('bad sample method:', inputs.sample);
-				break;
-			}
-			let v = state.next_variable();
-			state.add_code(`vec3 ${v} = texture2D(u_texture, ${vpos}).xyz;\n`);
-			return {type: 'vec3', code: v};
-		},
-	},
-	'wtadd': {
-		name: 'Add (weighted)',
-		tooltip: 'add two numbers or vectors (with weights)',
-		inputs: [
-			{name: 'a', id: 'a'},
-			{name: 'a weight', id: 'aw', dfl: 1},
-			{name: 'b', id: 'b'},
-			{name: 'b weight', id: 'bw', dfl: 1}
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let a = inputs.a;
-			let b = inputs.b;
-			let aw = inputs.aw;
-			let bw = inputs.bw;
-			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
-				return {error: `cannot add types ${a.type} and ${b.type}`};
-			}
-			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
-			if (aw.type !== output_type && aw.type !== type_base_type(output_type)) {
-				return {error: `bad weight type: ${aw.type}`};
-			}
-			if (bw.type !== output_type && bw.type !== type_base_type(output_type)) {
-				return {error: `bad weight type: ${bw.type}`};
-			}
-			
-			let v = state.next_variable();
-			state.add_code(`${output_type} ${v} = ${a.code} * ${aw.code} + ${b.code} * ${bw.code};\n`);
-			return {code: v, type: output_type};
-		},
-	},
-	'mul': {
-		name: 'Multiply',
-		tooltip: 'multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors',
-		inputs: [
-			{name: 'a', id: 'a'},
-			{name: 'b', id: 'b'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let a = inputs.a;
-			let b = inputs.b;
-			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
-				return {error: `cannot multiply types ${a.type} and ${b.type}`};
-			}
-			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
-			let v = state.next_variable();
-			state.add_code(`${output_type} ${v} = ${a.code} * ${b.code};\n`);
-			return {code: v, type: output_type};
-		},
-	},
-	'pow': {
-		name: 'Power',
-		tooltip: 'take one number to the power of another',
-		inputs: [
-			{name: 'a', id: 'a'},
-			{name: 'b', id: 'b'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let a = inputs.a;
-			let b = inputs.b;
-			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
-				return {error: `cannot type ${a.type} to the power of type ${b.type}`};
-			}
-			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
-			let v = state.next_variable();
-			state.add_code(`${output_type} ${v} = pow(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
-			return {code: v, type: output_type};
-		},
-	},
-	'mod': {
-		name: 'Modulo',
-		tooltip: 'wrap a value at a certain limit',
-		inputs: [
-			{name: 'a', id: 'a'},
-			{name: 'b', id: 'b', dfl: '1'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let a = inputs.a;
-			let b = inputs.b;
-			if (a.type !== b.type && a.type !== type_base_type(b.type) && b.type !== type_base_type(a.type)) {
-				return {error: `cannot take type ${a.type} modulo type ${b.type}`};
-			}
-			
-			let output_type = a.type === type_base_type(b.type) ? b.type : a.type;
-			let v = state.next_variable();
-			state.add_code(`${output_type} ${v} = mod(${output_type}(${a.code}), ${output_type}(${b.code}));\n`);
-			return {code: v, type: output_type};
-		}
-	},
-	'square': {
-		name: 'Square',
-		tooltip: 'select between two inputs depending on whether a point lies within a square (or cube in 3D)',
-		inputs: [
-			{name: 'pos', id: 'pos', tooltip: 'point to test', dfl: '.pos'},
-			{name: 'inside', id: 'inside', dfl: '#f00', tooltip: 'source to use if pos lies inside the square'},
-			{name: 'outside', id: 'outside', dfl: '#0f0', tooltip: 'source to use if pos lies outside the square'},
-			{name: 'size', id: 'size', tooltip: 'radius of the square', dfl: '0.5'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let pos = inputs.pos;
-			let inside = inputs.inside;
-			let outside = inputs.outside;
-			let size = inputs.size;
-			if (type_base_type(pos.type) !== 'float') {
-				return {error: 'bad type for input pos: ' + pos.type};
-			}
-			let output_type = inside.type;
-			if (output_type !== outside.type) {
-				return {error: `selector input types ${inside.type} and ${outside.type} do not match`};
-			}
-			if (size.type !== 'float' && size.type !== pos.type) {
-				return {error: `bad type for square size: ${size.type}`};
-			}
-			let a = state.next_variable();
-			let b = state.next_variable();
-			let v = state.next_variable();
-			state.add_code(`${pos.type} ${a} = abs(${pos.code} / ${size.code});\n`);
-			switch (type_component_count(pos.type)) {
-			case 1:
-				b = a;
-				break;
-			case 2:
-				state.add_code(`float ${b} = max(${a}.x,${a}.y);\n`);
-				break;
-			case 3:
-				state.add_code(`float ${b} = max(${a}.x,max(${a}.y,${a}.z));\n`);
-				break;
-			case 4:
-				state.add_code(`float ${b} = max(${a}.x,max(${a}.y,max(${a}.z,${a}.w)));\n`);
-				break;
-			}
-			state.add_code(`${output_type} ${v} = ${b} < 1.0 ? ${inside.code} : ${outside.code};\n`);
-			return {code: v, type: output_type};
-		},
-	},
-	'circle': {
-		name: 'Circle',
-		tooltip: 'select between two inputs depending on whether a point lies within a circle (or sphere in 3D)',
-		inputs: [
-			{name: 'pos', id: 'pos', dfl: '.pos', tooltip: 'point to test'},
-			{name: 'inside', id: 'inside', dfl: '#f00', tooltip: 'source to use if pos lies inside the circle'},
-			{name: 'outside', id: 'outside', dfl: '#0f0', tooltip: 'source to use if pos lies outside the circle'},
-			{name: 'size', id: 'size', dfl: '0.5', tooltip: 'radius of the circle'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let pos = inputs.pos;
-			let inside = inputs.inside;
-			let outside = inputs.outside;
-			let size = inputs.size;
-			if (type_base_type(pos.type) !== 'float') {
-				return {error: 'bad type for input pos: ' + pos.type};
-			}
-			let output_type = inside.type;
-			if (output_type !== outside.type) {
-				return {error: `selector input types ${inside.type} and ${outside.type} do not match`};
-			}
-			if (size.type !== 'float' && size.type !== pos.type) {
-				return {error: `bad type for circle size: ${size.type}`};
-			}
-			let a = state.next_variable();
-			let v = state.next_variable();
-			state.add_code(`${pos.type} ${a} = ${pos.code} / ${size.code};\n`);
-			state.add_code(`${output_type} ${v} = dot(${a}, ${a}) < 1.0 ? ${inside.code} : ${outside.code};\n`);
-			return {code: v, type: output_type};
-		},
-	},
-	'compare': {
-		name: 'Comparator',
-		tooltip: 'select between two inputs depending on a comparison between two values',
-		inputs: [
-			{name: 'compare 1', id: 'cmp1', tooltip: 'input to compare against "Compare 2"'},
-			{name: 'compare 2', dfl: '0', id: 'cmp2', tooltip: 'input to compare against "Compare 1"'},
-			{name: 'if less', dfl: '0', id: 'less', tooltip: 'value to output if "Compare 1" < "Compare 2"'},
-			{name: 'if greater', dfl: '1', id: 'greater', tooltip: 'value to output if "Compare 1" ≥ "Compare 2"'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let cmp1 = inputs.cmp1;
-			let cmp2 = inputs.cmp2;
-			let less = inputs.less;
-			let greater = inputs.greater;
-			if (cmp1.type !== 'float') {
-				return {error: `bad type for "Compare 1": ${cmp1.type}`};
-			}
-			if (cmp2.type !== 'float') {
-				return {error: `bad type for "Compare 2": ${cmp2.type}`};
-			}
-			let type = less.type;
-			if (type !== greater.type) {
-				return {error: `selector types do not match (${less.type} and ${greater.type})`};
-			}
-			let v = state.next_variable();
-			state.add_code(`${type} ${v} = ${cmp1.code} < ${cmp2.code} ? ${less.code} : ${greater.code};\n`);
-			return {code: v, type: type};
-		}
-	},
-	'sin': {
-		name: 'Sine wave',
-		tooltip: 'a wave based on the sin function',
-		inputs: [
-			{name: 't', id: 't', tooltip: 'position in the wave'},
-			{name: 'period', id: 'period', dfl: '1', tooltip: 'period of the wave'},
-			{name: 'amplitude', id: 'amp', dfl: '1', tooltip: 'amplitude (maximum value) of the wave'},
-			{name: 'phase', id: 'phase', dfl: '0', tooltip: 'phase of the wave (0.5 = phase by ½ period)'},
-			{name: 'baseline', id: 'center', dfl: '0', tooltip: 'this value is added to the output at the end'},
-		],
-		controls: [
-			{name: 'non-negative', id: 'nonneg', tooltip: 'make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp', type: 'checkbox'},
-		],
-		func: function (state, inputs) {
-			let t = inputs.t;
-			let period = inputs.period;
-			let amplitude = inputs.amp;
-			let phase = inputs.phase;
-			let center = inputs.center;
-			if (type_base_type(t.type) !== 'float') {
-				return {error: 'bad type for t: ' + t.type};
-			}
-			if (period.type !== 'float' && period.type !== t.type) {
-				return {error: 'bad type for period: ' + period.type};
-			}
-			if (amplitude.type !== 'float' && amplitude.type !== t.type) {
-				return {error: 'bad type for amplitude: ' + amplitude.type};
-			}
-			if (phase.type !== 'float' && phase.type !== t.type) {
-				return {error: 'bad type for phase: ' + phase.type};
-			}
-			if (center.type !== 'float' && center.type !== t.type) {
-				return {error: 'bad type for center: ' + center.type};
-			}
-			
-			let v = state.next_variable();
-			state.add_code(`${t.type} ${v} = sin((${t.code} / ${period.code} - ${phase.code}) * 6.2831853);\n`);
-			if (inputs.nonneg) {
-				state.add_code(`${v} = ${v} * 0.5 + 0.5;\n`);
-			}
-			state.add_code(`${v} = ${v} * ${amplitude.code} + ${center.code};\n`);
-			return {code: v, type: t.type};
-		}
-	},
-	'rot2': {
-		name: 'Rotate 2D',
-		tooltip: 'rotate a 2-dimensional vector',
-		inputs: [
-			{name: 'v', id: 'v', tooltip: 'vector to rotate'},
-			{name: 'θ', id: 'theta', tooltip: 'angle to rotate by (in radians)'},
-		],
-		controls: [{name: 'direction', id: 'dir', tooltip: 'direction of rotation', type: 'select:clockwise|counterclockwise'}],
-		func: function (state, inputs) {
-			let v = inputs.v;
-			let theta = inputs.theta;
-			if (v.type !== 'vec2') {
-				return {error: 'input vector to Rotate 2D must be vec2; got ' + v.type};
-			}
-			if (theta.type !== 'float') {
-				return {error: 'input angle to Rotate 2D must be float; got ' + theta.type};
-			}
-			
-			let w = state.next_variable();
-			let c = state.next_variable();
-			let s = state.next_variable();
-			state.add_code(`float ${c} = cos(${theta.code});\n`);
-			state.add_code(`float ${s} = sin(${theta.code});\n`);
-			state.add_code(`vec2 ${w} = vec2(${c} * ${v.code}.x - ${s} * ${v.code}.y, ${s} * ${v.code}.x + ${c} * ${v.code}.y);\n`);
-			return {code: w, type: 'vec2'};
-		},
-	},
-	'hue': {
-		name: 'Hue shift',
-		tooltip: 'shift hue of color',
-		inputs: [
-			{name: 'color', id: 'color', tooltip: 'input color'},
-			{name: 'shift', id: 'shift', tooltip: 'how much to shift hue by (0.5 = shift halfway across the rainbow)'},
-		],
-		controls: [],
-		func: function (state, inputs) {
-			let color = inputs.color;
-			let shift = inputs.shift;
-			if (color.type !== 'vec3') {
-				return {error: `color should be vec3, not ${color.type}`};
-			}
-			if (shift.type !== 'float') {
-				return {error: `hue shift should be float, not ${shift.type}`};
-			}
-			
-			let v = state.next_variable();
-			state.add_code(`vec3 ${v} = hue_shift(${color.code}, ${shift.code});\n`);
-			return {code: v, type: 'vec3'};
-		},
-	},
-	'clamp': {
-		name: 'Clamp',
-		tooltip: 'clamp a value between a minimum and maximum',
-		inputs: [
-			{name: 'value', id: 'val', tooltip: 'input value'},
-			{name: 'minimum', id: 'min'},
-			{name: 'maximum', id: 'max'},
-		],
-		controls: [],
-		func: function(state, inputs) {
-			let min = inputs.min;
-			let max = inputs.max;
-			let val = inputs.val;
-			if (type_base_type(val.type) !== 'float') {
-				return {error: `bad type for clamp value: ${val.type}`};
-			}
-			if (min.type !== val.type && min.type !== type_base_type(val.type)) {
-				return {error: `bad type for clamp minimum: ${min.type}`};
-			}
-			if (max.type !== val.type && max.type !== type_base_type(val.type)) {
-				return {error: `bad type for clamp maximum: ${max.type}`};
-			}
-			let v = state.next_variable();
-			state.add_code(`${val.type} ${v} = clamp(${val.code}, ${min.code}, ${max.code});\n`);
-			return {code: v, type: val.type};
-		}
-	}
-};
+const widget_info = [
+	`
+//! name: Buffer
+//! description: outputs its input unaltered. useful for defining constants.
+//! x.name: input
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} buffer(${type} x) {
+	return x;
+}`).join('\n'),
+	`
+//! .name: Mix
+//! .description: weighted average of two inputs
+//! a.name: source 1
+//! a.default: 0
+//! b.name: source 2
+//! b.default: 1
+//! x.name: mix
+//! x.default: 0.5
+//! c.name: clamp mix
+//! c.type: checkbox
+//! c.description: clamp the mix input to the [0, 1] range
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} mix_(${type} a, ${type} b, ${type} x, int c) {
+	if (c != 0) x = clamp(x, 0.0, 1.0);
+	return mix(a, b, x);
+}
+`).join('\n'),
+	`
+//! .name: Last frame
+//! .description: sample from the previous frame
+//! pos.description: position to sample — bottom-left corner is (0, 0), top-right corner is (1, 1)
+//! wrap.name: wrap mode
+//! wrap.type: select:clamp|wrap
+//! wrap.description: how to deal with the input components if they go outside [0, 1]
+//! sample.name: sample mode
+//! sample.type: select:linear|nearest
+//! sample.description: how positions in between pixels should be sampled
+
+vec3 last_frame(vec2 pos, int wrap, int sample) {
+	if (wrap == 0)
+		pos = mod(pos, 1.0);
+	else if (wrap == 1)
+		pos = clamp(pos, 0.0, 1.0);
+	if (sample == 1)
+		pos = floor(0.5 + pos * ff_texture_size) * (1.0 / ff_texture_size);
+	return texture2D(ff_texture, pos).xyz;
+}
+`,
+	`
+//! .name: Weighted add
+//! .description: add two numbers or vectors with weights
+//! aw.name: a weight
+//! aw.default: 1
+//! bw.name: b weight
+//! bw.default: 1
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} wtadd(${type} a, float aw, ${type} b, float bw) {
+	return a * aw + b * bw;
+}
+`).join('\n'),
+	`
+//! .name: Multiply
+//! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} mul(${type} a, ${type} b) {
+	return a * b;
+}
+`).join('\n'),
+	`
+//! .name: Power
+//! .description: take one number to the power of another
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} pow_(${type} a, ${type} b) {
+	return pow(a, b);
+}
+`).join('\n'),
+	`
+//! .name: Modulo
+//! .description: wrap a value at a certain limit
+//! b.default: 1
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} mod_(${type} a, ${type} b) {
+	return mod(a, b);
+}
+`).join('\n'),
+	`
+//! .name: Square
+//! .description: select between two inputs depending on whether a point lies within a square (or cube in 3D)
+//! pos.name: pos
+//! pos.description: point to test
+//! pos.default: .pos
+//! inside.description: source to use if pos lies inside the square
+//! inside.default: #f00
+//! outside.description: source to use if pos lies outside the square
+//! outside.default: #0f0
+//! size.description: radius of the square
+//! size.default: 0.5
+
+` + [['float', 'a'], ['vec2', 'max(a.x, a.y)'], ['vec3', 'max(a.x, max(a.y, a.z))'], ['vec4', 'max(max(a.x, a.y), max(a.z, a.w))']].map((x) => {
+	let type = x[0];
+	let max = x[1];
+	return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
+${type} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
+	${type} a = pos / size;
+	return ${max} < 1.0 ? inside : outside;
+}
+`).join('\n');
+}).join('\n'),
+	`
+//! .name: Circle
+//! .description: select between two inputs depending on whether a point lies within a circle (or sphere in 3D)
+//! pos.default: .pos
+//! pos.description: point to test
+//! inside.default: #f00
+//! inside.description: source to use if pos lies inside the circle
+//! outside.default: #0f0
+//! outside.description: source to use if pos lies outside the circle
+//! size.default: 0.5
+//! size.description: radius of the circle
+
+`+ ['float', 'vec2', 'vec3', 'vec4'].map((type) => {
+	return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
+${type} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
+	pos /= size;
+	return dot(pos, pos) < 1.0 ? inside : outside;
+}
+`).join('\n');
+}).join('\n'),
+`
+//! .name: Comparator
+//! .description: select between two inputs depending on a comparison between two values
+//! cmp1.name: compare 1
+//! cmp1.description: input to compare against "Compare 2"
+//! cmp2.name: compare 2
+//! cmp2.default: 0
+//! cmp2.description: input to compare against "Compare 1"
+//! less.name: if less
+//! less.default: 0
+//! less.description: value to output if "Compare 1" < "Compare 2"
+//! greater.name: if greater
+//! greater.default: 1
+//! greater.description: value to output if "Compare 1" ≥ "Compare 2"
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
+	return cmp1 < cmp2 ? less : greater;
+}
+`).join('\n'),
+	`
+//! .name: Sine wave
+//! .description: a wave based on the sin function
+//! t.description: position in the wave
+//! t.default: .time
+//! period.description: period of the wave
+//! period.default: 1
+//! amp.name: amplitude
+//! amp.default: 1
+//! amp.description: amplitude (maximum value) of the wave
+//! phase.default: 0
+//! phase.description: phase of the wave (0.5 = phase by ½ period)
+//! center.name: baseline
+//! center.default: 0
+//! center.description: this value is added to the output at the end
+//! nonneg.name: non-negative
+//! nonneg.description: make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp
+//! nonneg.type: checkbox
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, ${type} nonneg) {
+	${type} v = sin((t / period - phase) * 6.2831853);
+	if (nonneg) v = v * 0.5 + 0.5;
+	return v;
+}
+`).join('\n'),
+	`
+//! .name: Rotate 2D
+//! .description: rotate a 2-dimensional vector
+//! v.description: vector to rotate
+//! theta.name: θ
+//! theta.description: angle to rotate by (in radians)
+//! dir.name: direction
+//! dir.description: direction of rotation
+//! dir.type: select:CCW|CW
+
+vec2 rotate2D(vec2 v, float theta, int dir) {
+	if (dir == 1) theta = -theta;
+	float c = cos(theta), s = sin(theta);
+	return vec2(c*v.x - s*v.y, s*v.x + c*v.y);
+}
+`,
+	`
+//! .name: Hue shift
+//! .description: shift hue of color
+//! color.description: input color
+//! shift.description: how much to shift hue by (0.5 = shift halfway across the rainbow)
+
+vec3 hue_shift(vec3 color, float shift) {
+	vec3 c = color;
+	// rgb to hsv
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	vec3 hsv = vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+	
+	hsv.x = mod(hsv.x + shift, 1.0);
+	c = hsv;
+	
+	// hsv to rgb
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+`,
+	`
+//! .name: Clamp
+//! .description: clamp a value between a minimum and maximum
+//! val.name: value
+//! val.description: input value
+//! minimum.name: min
+//! maximum.name: max
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
+	return clamp(x, minimum, maximum);
+}
+`).join('\n'),
+];
+
 let widget_ids_sorted_by_name = [];
 for (let id in widget_info) { 
 	widget_ids_sorted_by_name.push(id);
@@ -536,34 +353,10 @@ function update_shader() {
 precision highp float;
 #endif
 
-uniform sampler2D u_texture;
-uniform float u_time;
-uniform vec2 u_texture_size;
-varying vec2 pos;
-
-vec3 rgb2hsv(vec3 c)
-{
-	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-	
-	float d = q.x - min(q.w, q.y);
-	float e = 1.0e-10;
-	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-
-vec3 hsv2rgb(vec3 c)
-{
-	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-
-vec3 hue_shift(vec3 color, float shift) {
-	vec3 hsv = rgb2hsv(color);
-	hsv.x = mod(hsv.x + shift, 1.0);
-	return hsv2rgb(hsv);
-}
+uniform sampler2D ff_texture;
+uniform float ff_time;
+uniform vec2 ff_texture_size;
+varying vec2 ff_pos;
 
 vec3 get_color() {
 	${source}
@@ -575,9 +368,9 @@ void main() {
 `;
 	const vertex_code = `
 attribute vec2 v_pos;
-varying vec2 pos;
+varying vec2 ff_pos;
 void main() {
-	pos = v_pos;
+	ff_pos = v_pos;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `;
@@ -1441,9 +1234,9 @@ function perform_step() {
 	gl.useProgram(program_main);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
-	gl.uniform1i(gl.getUniformLocation(program_main, 'u_texture'), 0);
-	gl.uniform1f(gl.getUniformLocation(program_main, 'u_time'), current_time % 3600);
-	gl.uniform2f(gl.getUniformLocation(program_main, 'u_texture_size'), width, height);
+	gl.uniform1i(gl.getUniformLocation(program_main, 'ff_texture'), 0);
+	gl.uniform1f(gl.getUniformLocation(program_main, 'ff_time'), current_time % 3600);
+	gl.uniform2f(gl.getUniformLocation(program_main, 'ff_texture_size'), width, height);
 	
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	let v_pos = gl.getAttribLocation(program_main, 'v_pos');
