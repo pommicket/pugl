@@ -37,6 +37,7 @@ let widget_search;
 let widgets_container;
 let display_output;
 let code_input;
+let error_element;
 let display_output_span = null;
 let auto_update = true;
 
@@ -758,7 +759,7 @@ function type_vec(base_type, component_count) {
 }
 
 function get_widget_by_name(name) {
-	for (let w of document.getElementsByClassName('widget')) {
+	for (const w of document.getElementsByClassName('widget')) {
 		if (get_widget_name(w) === name) {
 			return w;
 		}
@@ -775,7 +776,7 @@ function get_widget_name(widget_div) {
 
 function get_widget_names() {
 	let s = new Set();
-	for (let w of document.getElementsByClassName('widget-name')) {
+	for (const w of document.getElementsByClassName('widget-name')) {
 		s.add(w.value);
 	}
 	return s;
@@ -784,7 +785,7 @@ function get_widget_names() {
 
 function set_display_output_and_update_shader(to) {
 	display_output = to;
-	for (let widget of document.getElementsByClassName('widget')) {
+	for (const widget of document.getElementsByClassName('widget')) {
 		widget.dataset.display = to === get_widget_name(widget) ? '1' : '0';
 	}
 	update_shader();
@@ -1161,15 +1162,15 @@ ${this.code.join('')}
 }
 
 function parse_widgets() {
-	let widgets = new Map();
-	for (let widget_div of document.getElementsByClassName('widget')) {
+	const widgets = new Map();
+	for (const widget_div of document.getElementsByClassName('widget')) {
 		let name = get_widget_name(widget_div);
 		let func = widget_div.dataset.func;
 		if (!name) {
 			return {error: `widget has no name. please give it one.`};
 		}
-		let inputs = new Map();
-		let controls = new Map();
+		const inputs = new Map();
+		const controls = new Map();
 		for (const input of widget_div.getElementsByClassName('in')) {
 			let id = input.dataset.id;
 			inputs.set(id, input.getElementsByClassName('entry')[0].innerText);
@@ -1420,6 +1421,8 @@ function startup() {
 	widget_search = document.getElementById('widget-search');
 	widgets_container = document.getElementById('widgets-container');
 	code_input = document.getElementById('code');
+	error_element = document.getElementById('error');
+	
 	ui_div.style.flexBasis = ui_div.offsetWidth + "px"; // convert to px
 	
 	// drag to resize ui
@@ -1674,8 +1677,12 @@ function compile_shader(name, type, source) {
 	return shader;
 }
 
+function clear_error() {
+	error_element.style.display = 'none';
+}
+
 function show_error(error) {
 	console.log('error:', error);
-	document.getElementById('error-message').innerText = error;
-	document.getElementById('error-dialog').showModal();
+	error_element.style.display = 'block';
+	error_element.innerText = error;
 }
