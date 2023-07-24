@@ -637,6 +637,7 @@ function update_key_modifiers_from_event(e) {
 }
 
 function update_shader() {
+	clear_error();
 	let source = get_shader_source();
 	if (source === null) {
 		return;
@@ -882,7 +883,7 @@ function add_widget(func) {
 				console.error('bad control type');
 			}
 			
-			input.addEventListener('change', function (e) {
+			input.addEventListener('input', function (e) {
 				if (auto_update) {
 					update_shader();
 				}
@@ -933,7 +934,7 @@ function add_widget(func) {
 			root.appendChild(container);
 			root.appendChild(document.createTextNode(' '));
 			
-			input_element.addEventListener('change', (e) => {
+			input_element.addEventListener('input', (e) => {
 				if (auto_update) {
 					update_shader();
 				}
@@ -1695,6 +1696,9 @@ function compile_shader(name, type, source) {
 
 function clear_error() {
 	error_element.style.display = 'none';
+	for (const widget of document.querySelectorAll('.widget.error')) {
+		widget.classList.remove('error');
+	}
 }
 
 function show_error(error) {
