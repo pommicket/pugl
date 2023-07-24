@@ -32,6 +32,7 @@ let ui_resize;
 let viewport_width, viewport_height;
 let shift_key = false, ctrl_key = false;
 let html_id = 0;
+let widget_id = 1;
 let widget_choices;
 let widget_search;
 let widgets_container;
@@ -223,7 +224,7 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 ${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
 	${type} v = sin((t / period - phase) * 6.2831853);
 	if (nonneg != 0) v = v * 0.5 + 0.5;
-	return v;
+	return amp * v + center;
 }
 `).join('\n'),
 	`
@@ -253,20 +254,25 @@ vec2 rotate2D(vec2 v, float theta, int dir) {
 vec3 hue_shift(vec3 color, float shift) {
 	vec3 c = color;
 	// rgb to hsv
-	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-	float d = q.x - min(q.w, q.y);
-	float e = 1.0e-10;
-	vec3 hsv = vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+	vec3 hsv;
+	{
+		vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+		vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+		vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+		float d = q.x - min(q.w, q.y);
+		float e = 1.0e-10;
+		hsv = vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+	}
 	
 	hsv.x = mod(hsv.x + shift, 1.0);
 	c = hsv;
 	
 	// hsv to rgb
-	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+	{
+		vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+		vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+		return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+	}
 }
 `,
 	`
@@ -767,6 +773,11 @@ function get_widget_by_name(name) {
 	return null;
 }
 
+
+function get_widget_by_id(id) {
+	return document.querySelector(`.widget[data-id="${id}"]`);
+}
+
 function get_widget_name(widget_div) {
 	let names = widget_div.getElementsByClassName('widget-name');
 	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
@@ -796,6 +807,7 @@ function add_widget(func) {
 	console.assert(info !== undefined, 'bad widget ID: ' + func);
 	let root = document.createElement('div');
 	root.dataset.func = func;
+	root.dataset.id = widget_id++;
 	root.classList.add('widget');
 	
 	{
@@ -984,7 +996,7 @@ ${this.code.join('')}
 			for (let item of items) {
 				let input = this.compute_input(item);
 				if ('error' in input) {
-					return {error: input.error};
+					return input;
 				}
 				components.push(input);
 			}
@@ -1077,21 +1089,27 @@ ${this.code.join('')}
 		}
 		this.computing_inputs.add(input);
 		let value = this.compute_widget_output(widget);
+		if (value.error) {
+			if (!value.widget) {
+				value.widget = widget.id;
+			}
+			return value;
+		}
 		this.computing_inputs.delete(input);
 		return value;
 	}
 	
 	compute_widget_output(widget) {
-		if (!('output' in widget)) {
+		if (!widget.output) {
 			const info = widget_info.get(widget.func);
 			const args = new Map();
 			const input_types = new Map();
 			for (let [input, value] of widget.inputs) {
 				console.log(input,value);
 				value = this.compute_input(value);
-				if ('error' in value) {
-					widget.output = {error: value.error};
-					return {error: value.error};
+				if (value.error) {
+					widget.output = value;
+					return value;
 				}
 				args.set(input, value.code);
 				input_types.set(input, value.type);
@@ -1120,6 +1138,7 @@ ${this.code.join('')}
 				}
 				if (score > best_score) {
 					best_definition = definition;
+					best_score = score;
 				}
 			}
 			
@@ -1152,12 +1171,7 @@ ${this.code.join('')}
 				type,
 			};
 		}
-		
-		let output = widget.output;
-		if ('error' in output) {
-			return {error: output.error};
-		}
-		return output;
+		return widget.output;
 	}
 }
 
@@ -1166,8 +1180,9 @@ function parse_widgets() {
 	for (const widget_div of document.getElementsByClassName('widget')) {
 		let name = get_widget_name(widget_div);
 		let func = widget_div.dataset.func;
+		let id = parseInt(widget_div.dataset.id);
 		if (!name) {
-			return {error: `widget has no name. please give it one.`};
+			return {error: `widget has no name. please give it one.`, widget: id};
 		}
 		const inputs = new Map();
 		const controls = new Map();
@@ -1180,7 +1195,7 @@ function parse_widgets() {
 			let input = control.getElementsByClassName('control-input')[0];
 			let value;
 			if (input.tagName === 'INPUT' && input.type == 'checkbox') {
-				value = input.checked;
+				value = input.checked ? 1 : 0;
 			} else if (input.tagName === 'SELECT') {
 				value = Array.from(input.getElementsByTagName('option'))
 					.map((o) => o.value)
@@ -1191,10 +1206,11 @@ function parse_widgets() {
 			controls.set(id, value);
 		}
 		if (widgets.has(name)) {
-			return {error: `duplicate widget name: ${name}`};
+			return {error: `duplicate widget name: ${name}`, widget: id};
 		}
 		widgets.set(name, {
 			func,
+			id,
 			inputs,
 			controls,
 		});
@@ -1204,8 +1220,9 @@ function parse_widgets() {
 
 function export_widgets() {
 	let widgets = parse_widgets();
-	if ('error' in widgets) {
-		return {error: widgets.error};
+	if (widgets.error) {
+		show_error(widgets);
+		return;
 	}
 	console.assert(widgets instanceof Map);
 	let data = [];
@@ -1346,7 +1363,7 @@ function import_widgets(string) {
 function import_widgets_from_local_storage() {
 	const result = import_widgets(localStorage.getItem('widgets'));
 	if (result && result.error) {
-		show_error(result.error);
+		show_error(result);
 	}
 }
 
@@ -1362,14 +1379,14 @@ function get_shader_source() {
 		return null;
 	}
 	let widgets = parse_widgets();
-	if ('error' in widgets) {
-		show_error(widgets.error);
+	if (widgets.error) {
+		show_error(widgets);
 		return null;
 	}
 	let state = new GLSLGenerationState(widgets);
 	let output = state.compute_input(display_output);
-	if ('error' in output) {
-		show_error(output.error);
+	if (output.error) {
+		show_error(output);
 		return null;
 	}
 	
@@ -1682,6 +1699,12 @@ function clear_error() {
 }
 
 function show_error(error) {
+	if (error.error) {
+		if (error.widget) {
+			get_widget_by_id(error.widget).classList.add('error');
+		}
+		error = error.error;
+	}
 	console.log('error:', error);
 	error_element.style.display = 'block';
 	error_element.innerText = error;
