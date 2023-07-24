@@ -11,6 +11,7 @@
 		padding: 0;
 		color: white;
 		overflow: hidden;
+		line-height: 1;
 	}
 	
 	
@@ -94,15 +95,14 @@
 		height: 100%;
 		flex-grow: 0;
 		flex-shrink: 0;
-		flex-basis: 20em;
-		padding: 0.2em;
+		flex-basis: 30%;
 	}
 	input, button {
-		vertical-align: middle;
 		display: inline-block;
 		border: 2px solid var(--ui-border);
 		background-color: transparent;
 		color: white;
+		padding: 0;
 	}
 	#ui input[type=color] {
 		padding: 0;
@@ -110,7 +110,7 @@
 	.in select {
 		width: 5em;
 	}
-	.entry {
+	.entry, .widget-name {
 		min-width: 1em;
 		border-bottom: 2px solid #fff4;
 		cursor: text;
@@ -137,9 +137,9 @@
 	.widget {
 		display: block;
 		border-bottom: 2px solid #777;
-		padding: 0.5em 0;
 		position: relative;
 		cursor: pointer;
+		padding: 0.1em 0;
 	}
 	.widget:hover {
 		background: #fff3;
@@ -149,16 +149,13 @@
 	}
 	.widget-title {
 		font-weight: bold;
-		margin: 1em 0.3em;
-	}
-	.widget-name {
-		width: 6em;
 	}
 	.widget-delete {
 		border: 0;
 	}
 	.widget-delete img {
 		width: 1.5em;
+		vertical-align: bottom;
 	}
 	.widget-delete:hover, .widget-delete:active {
 		background-color: transparent;

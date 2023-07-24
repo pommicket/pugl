@@ -781,14 +781,14 @@ function get_widget_by_id(id) {
 function get_widget_name(widget_div) {
 	let names = widget_div.getElementsByClassName('widget-name');
 	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
-	return names[0].value;
+	return names[0].innerText;
 }
 
 
 function get_widget_names() {
 	let s = new Set();
 	for (const w of document.getElementsByClassName('widget-name')) {
-		s.add(w.value);
+		s.add(w.innerText);
 	}
 	return s;
 }
@@ -831,8 +831,8 @@ function add_widget(func) {
 			title.title = info.description;
 		}
 		title.appendChild(document.createTextNode(info.name + ' '));
-		let name_input = document.createElement('input');
-		name_input.placeholder = 'Name';
+		let name_input = document.createElement('div');
+		name_input.contentEditable = true;
 		name_input.classList.add('widget-name');
 		
 		// generate unique name
@@ -843,7 +843,7 @@ function add_widget(func) {
 				break;
 			}
 		}
-		name_input.value = func + i;
+		name_input.innerText = func + i;
 		
 		title.appendChild(name_input);
 		root.appendChild(title);
@@ -942,7 +942,7 @@ function add_widget(func) {
 	}
 	
 	root.addEventListener('click', (e) => {
-		if (e.target.tagName === 'INPUT' || e.target.isContentEditable || e.target.tagName === 'SELECT')
+		if (e.target.tagName === 'INPUT' || e.target.isContentEditable || e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION')
 			return;
 		set_display_output_and_update_shader(get_widget_name(root));
 		e.preventDefault();
@@ -1105,7 +1105,6 @@ ${this.code.join('')}
 			const args = new Map();
 			const input_types = new Map();
 			for (let [input, value] of widget.inputs) {
-				console.log(input,value);
 				value = this.compute_input(value);
 				if (value.error) {
 					widget.output = value;
@@ -1317,7 +1316,7 @@ function import_widgets(string) {
 			return {error: `bad import string (widget type '${widget.func}' does not exist)`};
 		}
 		let element = add_widget(widget.func);
-		element.getElementsByClassName('widget-name')[0].value = name;
+		element.getElementsByClassName('widget-name')[0].innerText = name;
 		function assign_value(container, value) {
 			let element = container.getElementsByTagName('input')[0];
 			if (element === undefined) {
@@ -1421,7 +1420,7 @@ function update_widget_choices() {
 		let name = widget_info.get(id).name;
 		let choice = choices[i];
 		let shown = name.toLowerCase().indexOf(search_term) !== -1;
-		// TODO
+		choice.display = shown ? 'block' : 'none';
 	});
 }
 
