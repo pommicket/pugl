@@ -305,6 +305,16 @@ ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 `).join('\n'),
 ];
 
+function is_input(element) {
+	if (!element) return false;
+	for (let e = element; e; e = e.parentElement) {
+		if (e.tagName === 'INPUT' || e.tagName === 'BUTTON' || e.tagName === 'SELECT' || e.isContentEditable) {
+			return true;
+		}
+	}
+	return false;
+}
+
 class Parser {
 	constructor(string, line_number) {
 		this.string = string;
@@ -680,7 +690,7 @@ void main() {
 function on_key_press(e) {
 	update_key_modifiers_from_event(e);
 	let code = e.keyCode;
-	if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.isContentEditable) {
+	if (is_input(e.target)) {
 		return;
 	}
 	console.log('key press', code);
@@ -951,7 +961,7 @@ function add_widget(func) {
 	}
 	
 	root.addEventListener('click', (e) => {
-		if (e.target.tagName === 'INPUT' || e.target.isContentEditable || e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION')
+		if (is_input(e.target))
 			return;
 		set_display_output_and_update_shader(root);
 		e.preventDefault();
@@ -1429,7 +1439,15 @@ function update_widget_choices() {
 	for (const choice of choices) {
 		let name = widget_info.get(choice.dataset.id).name;
 		let shown = name.toLowerCase().indexOf(search_term) !== -1;
-		choice.display = shown ? 'block' : 'none';
+		choice.style.display = shown ? 'block' : 'none';
+	}
+	for (const category of widget_choices.getElementsByClassName('widget-category')) {
+		if (Array.from(category.getElementsByClassName('widget-choice')).some((x) => x.style.display === 'block')) {
+			category.style.display = 'block';
+			category.open = search_term !== '';
+		} else {
+			category.style.display = 'none';
+		}
 	}
 }
 
@@ -1542,6 +1560,7 @@ void main() {
 		
 		for (const cat of category_names) {
 			const category_element = document.createElement('details');
+			category_element.classList.add('widget-category');
 			const category_title = document.createElement('summary');
 			category_title.appendChild(document.createTextNode(cat));
 			category_element.appendChild(category_title);
