@@ -36,10 +36,8 @@ let widget_id = 1;
 let widget_choices;
 let widget_search;
 let widgets_container;
-let display_output;
 let code_input;
 let error_element;
-let display_output_span = null;
 let auto_update = true;
 
 let width = 1920, height = 1920;
@@ -47,6 +45,7 @@ let width = 1920, height = 1920;
 const builtin_widgets = [
 	`
 //! .name: Buffer
+//! .category: basic
 //! .description: outputs its input unaltered. useful for defining constants.
 //! x.name: input
 //! x.id: input
@@ -56,6 +55,7 @@ ${type} buffer(${type} x) {
 }`).join('\n'),
 	`
 //! .name: Mix
+//! .category: basic
 //! .id: mix
 //! .description: weighted average of two inputs
 //! a.name: source 1
@@ -75,6 +75,7 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 `).join('\n'),
 	`
 //! .name: Last frame
+//! .category: basic
 //! .id: prev
 //! .description: sample from the previous frame
 //! pos.description: position to sample — bottom-left corner is (−1, −1), top-right corner is (1, 1)
@@ -98,6 +99,7 @@ vec3 last_frame(vec2 pos, int wrap, int sample) {
 `,
 	`
 //! .name: Weighted add
+//! .category: basic
 //! .description: add two numbers or vectors with weights
 //! aw.name: a weight
 //! aw.default: 1
@@ -111,6 +113,7 @@ ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 `).join('\n'),
 	`
 //! .name: Multiply
+//! .category: basic
 //! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} mul(${type} a, ${type} b) {
@@ -119,6 +122,7 @@ ${type} mul(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Power
+//! .category: basic
 //! .id: pow
 //! .description: take one number to the power of another
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
@@ -128,6 +132,7 @@ ${type} pow_(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Modulo
+//! .category: basic
 //! .id: mod
 //! .description: wrap a value at a certain limit
 //! a.name: a
@@ -139,6 +144,7 @@ ${type} mod_(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Square
+//! .category: geometry
 //! .description: select between two inputs depending on whether a point lies within a square (or cube in 3D)
 //! pos.name: pos
 //! pos.description: point to test
@@ -162,6 +168,7 @@ ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 }).join('\n'),
 	`
 //! .name: Circle
+//! .category: geometry
 //! .description: select between two inputs depending on whether a point lies within a circle (or sphere in 3D)
 //! pos.default: .pos
 //! pos.description: point to test
@@ -182,6 +189,7 @@ ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 }).join('\n'),
 `
 //! .name: Comparator
+//! .category: basic
 //! .description: select between two inputs depending on a comparison between two values
 //! .id: cmp
 //! cmp1.name: compare 1
@@ -202,6 +210,7 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 `).join('\n'),
 	`
 //! .name: Sine wave
+//! .category: curves
 //! .description: a wave based on the sin function
 //! .id: sin
 //! t.description: position in the wave
@@ -229,6 +238,7 @@ ${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type}
 `).join('\n'),
 	`
 //! .name: Rotate 2D
+//! .category: geometry
 //! .id: rot2
 //! .description: rotate a 2-dimensional vector
 //! v.description: vector to rotate
@@ -246,6 +256,7 @@ vec2 rotate2D(vec2 v, float theta, int dir) {
 `,
 	`
 //! .name: Hue shift
+//! .category: colors
 //! .id: hue
 //! .description: shift hue of color
 //! color.description: input color
@@ -277,6 +288,7 @@ vec3 hue_shift(vec3 color, float shift) {
 `,
 	`
 //! .name: Clamp
+//! .category: basic
 //! .id: clamp
 //! .description: clamp a value between a minimum and maximum
 //! x.name: value
@@ -377,6 +389,7 @@ function parse_widget_definition(code) {
 	let name = undefined;
 	let description = '';
 	let id = undefined;
+	let category = undefined;
 	let def_start = undefined;
 	let error = undefined;
 	let params = new Map();
@@ -401,6 +414,8 @@ function parse_widget_definition(code) {
 				description = value;
 			} else if (key === '.id') {
 				id = value;
+			} else if (key === '.category') {
+				category = value;
 			} else if (key.startsWith('.')) {
 				error = `on line ${index+1}: key ${key} not recognized`;
 				return;
@@ -543,9 +558,12 @@ function parse_widget_definition(code) {
 	}
 	if (!name)
 		name = id;
-	
+	if (!category) {
+		return {error: `no category set for ${id}`};
+	}
 	return {
 		id,
+		category,
 		function_name,
 		name,
 		params,
@@ -554,7 +572,7 @@ function parse_widget_definition(code) {
 	};
 }
 
-let widget_info = new Map();
+const widget_info = new Map();
 for (const code of builtin_widgets) {
 	const result = parse_widget_definition(code);
 	if (result && result.error) {
@@ -563,16 +581,6 @@ for (const code of builtin_widgets) {
 		widget_info.set(result.id, result);
 	}
 }
-
-let widget_ids_sorted_by_name = [];
-for (const widget of widget_info.keys()) {
-	widget_ids_sorted_by_name.push(widget);
-}
-widget_ids_sorted_by_name.sort(function (a, b) {
-	a = widget_info.get(a).name;
-	b = widget_info.get(b).name;
-	return a.localeCompare(b);
-});
 
 window.addEventListener('load', startup);
 
@@ -796,10 +804,10 @@ function get_widget_names() {
 
 
 function set_display_output_and_update_shader(to) {
-	display_output = to;
-	for (const widget of document.getElementsByClassName('widget')) {
-		widget.dataset.display = to === get_widget_name(widget) ? '1' : '0';
+	for (const widget of document.querySelectorAll('.widget[data-display="1"]')) {
+		widget.dataset.display = '0';
 	}
+	to.dataset.display = '1';
 	update_shader();
 }
 
@@ -945,7 +953,7 @@ function add_widget(func) {
 	root.addEventListener('click', (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.isContentEditable || e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION')
 			return;
-		set_display_output_and_update_shader(get_widget_name(root));
+		set_display_output_and_update_shader(root);
 		e.preventDefault();
 	});
 	
@@ -1252,7 +1260,7 @@ function export_widgets() {
 		data.push(';;');
 	}
 	data.push('_out=');
-	data.push(display_output);
+	data.push(get_widget_name(document.querySelector('.widget[data-display="1"]')));
 	return data.join('');
 }
 
@@ -1357,7 +1365,7 @@ function import_widgets(string) {
 		}
 	};
 	
-	set_display_output_and_update_shader(output);
+	set_display_output_and_update_shader(get_widget_by_name(output));
 }
 
 function import_widgets_from_local_storage() {
@@ -1374,6 +1382,7 @@ function export_widgets_to_local_storage() {
 }
 
 function get_shader_source() {
+	const display_output = document.querySelector('.widget[data-display="1"]');
 	if (!display_output) {
 		show_error('no output chosen');
 		return null;
@@ -1384,7 +1393,7 @@ function get_shader_source() {
 		return null;
 	}
 	let state = new GLSLGenerationState(widgets);
-	let output = state.compute_input(display_output);
+	let output = state.compute_input(get_widget_name(display_output));
 	if (output.error) {
 		show_error(output);
 		return null;
@@ -1417,12 +1426,11 @@ function get_shader_source() {
 function update_widget_choices() {
 	let search_term = widget_search.value.toLowerCase();
 	let choices = widget_choices.getElementsByClassName('widget-choice');
-	widget_ids_sorted_by_name.forEach(function (id, i) {
-		let name = widget_info.get(id).name;
-		let choice = choices[i];
+	for (const choice of choices) {
+		let name = widget_info.get(choice.dataset.id).name;
 		let shown = name.toLowerCase().indexOf(search_term) !== -1;
 		choice.display = shown ? 'block' : 'none';
-	});
+	}
 }
 
 
@@ -1520,20 +1528,42 @@ void main() {
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
 	
-	// add widget buttons
-	for (const id of widget_ids_sorted_by_name) {
-		let widget = widget_info.get(id);
-		let button = document.createElement('button');
-		button.classList.add('widget-choice');
-		if ('description' in widget) {
-			button.title = widget.description;
+	{
+		// add widget buttons
+		const categories = new Map();
+		for (const info of widget_info.values()) {
+			if (!categories.has(info.category)) {
+				categories.set(info.category, []);
+			}
+			categories.get(info.category).push(info.id);
 		}
-		button.appendChild(document.createTextNode(widget.name));
-		button.dataset.id = id;
-		widget_choices.appendChild(button);
-		button.addEventListener('click', function (e) {
-			add_widget(id);
-		});
+		const category_names = Array.from(categories.keys());
+		category_names.sort();
+		
+		for (const cat of category_names) {
+			const category_element = document.createElement('details');
+			const category_title = document.createElement('summary');
+			category_title.appendChild(document.createTextNode(cat));
+			category_element.appendChild(category_title);
+			widget_choices.appendChild(category_element);
+			
+			const widgets = categories.get(cat);
+			widgets.sort((a, b) => widget_info.get(a).name.localeCompare(widget_info.get(b).name));
+			for (const id of widgets) {
+				let widget = widget_info.get(id);
+				let button = document.createElement('button');
+				button.classList.add('widget-choice');
+				if ('description' in widget) {
+					button.title = widget.description;
+				}
+				button.appendChild(document.createTextNode(widget.name));
+				button.dataset.id = id;
+				category_element.appendChild(button);
+				button.addEventListener('click', function (e) {
+					add_widget(id);
+				});
+			}
+		}
 	}
 	
 	set_up_framebuffer();
