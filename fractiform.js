@@ -2,14 +2,8 @@
 
 /*
 TODO:
-- detect duplicate widget names
-- forbid .,;|/\:(){}[]+-<>'"`~?!#%^&* in widget names
 - widgets:
 	- rotate 3D
-- parse input expressions
-- show which widget generated an error
-   - don't make the error a whole big pop-up
-   - switch 'change' event listener to 'input' for auto-update
 */
 
 let gl;
@@ -622,7 +616,7 @@ function rgba_hex_to_float(hex) {
 		return null;
 	}
 	
-	let color = {
+	const color = {
 		r: r,
 		g: g,
 		b: b,
@@ -792,6 +786,7 @@ function add_widget(func) {
 		delete_button.classList.add('widget-delete');
 		delete_button.addEventListener('click', () => {
 			root.remove();
+			update_shader();
 		});
 		root.appendChild(delete_button);
 	}
@@ -806,6 +801,7 @@ function add_widget(func) {
 		let name_input = document.createElement('div');
 		name_input.contentEditable = true;
 		name_input.classList.add('widget-name');
+		name_input.addEventListener('input', () => update_shader());
 		
 		// generate unique name
 		let names = get_widget_names();
@@ -1155,6 +1151,15 @@ function parse_widgets() {
 		if (!name) {
 			return {error: 'widget has no name. please give it one.', widget: id};
 		}
+		for (const c of name) {
+			if ('.,;|/\\:(){}[]+-<>\'"`~?!#%^&*'.indexOf(c) !== -1) {
+				return {error: `widget name cannot contain the character ${c}`, widget: id};
+			}
+		}
+		if (widgets.has(name)) {
+			return {error: `duplicate widget name: ${name}`, widget: id};
+		}
+		
 		const inputs = new Map();
 		const controls = new Map();
 		for (const input of widget_div.getElementsByClassName('in')) {
@@ -1176,9 +1181,6 @@ function parse_widgets() {
 			}
 			controls.set(id, value);
 		}
-		if (widgets.has(name)) {
-			return {error: `duplicate widget name: ${name}`, widget: id};
-		}
 		widgets.set(name, {
 			func,
 			id,
@@ -1197,9 +1199,7 @@ function export_widgets() {
 	}
 	console.assert(widgets instanceof Map);
 	let data = [];
-	for (let kv of widgets) {
-		let name = kv[0];
-		let widget = kv[1];
+	for (const [name, widget] of widgets) {
 		data.push(widget.func);
 		data.push(';');
 		data.push('n:');
@@ -1306,22 +1306,22 @@ function import_widgets(string) {
 		}
 	}
 	widgets_container.innerHTML = '';
-	for (let widget of widgets) {
-		let name = widget.name;
+	for (const widget of widgets) {
+		const name = widget.name;
 		if (!widget_info.has(widget.func)) {
 			return {error: `bad import string (widget type '${widget.func}' does not exist)`};
 		}
-		let element = add_widget(widget.func);
+		const element = add_widget(widget.func);
 		element.getElementsByClassName('widget-name')[0].innerText = name;
 
 		for (const [input, value] of widget.inputs) {
-			let container = Array.from(element.getElementsByClassName('in')).find(
+			const container = Array.from(element.getElementsByClassName('in')).find(
 				(e) => e.dataset.id === input
 			);
 			assign_value(container, value);
 		}
 		for (const [control, value] of widget.controls) {
-			let container = Array.from(element.getElementsByClassName('control')).find(
+			const container = Array.from(element.getElementsByClassName('control')).find(
 				(e) => e.dataset.id === control
 			);
 			assign_value(container, value);
@@ -1350,13 +1350,13 @@ function get_shader_source() {
 		show_error('no output chosen');
 		return null;
 	}
-	let widgets = parse_widgets();
+	const widgets = parse_widgets();
 	if (widgets.error) {
 		show_error(widgets);
 		return null;
 	}
-	let state = new GLSLGenerationState(widgets);
-	let output = state.compute_input(get_widget_name(display_output));
+	const state = new GLSLGenerationState(widgets);
+	const output = state.compute_input(get_widget_name(display_output));
 	if (output.error) {
 		show_error(output);
 		return null;
@@ -1387,11 +1387,11 @@ function get_shader_source() {
 }
 
 function update_widget_choices() {
-	let search_term = widget_search.value.toLowerCase();
-	let choices = widget_choices.getElementsByClassName('widget-choice');
+	const search_term = widget_search.value.toLowerCase();
+	const choices = widget_choices.getElementsByClassName('widget-choice');
 	for (const choice of choices) {
-		let name = widget_info.get(choice.dataset.id).name;
-		let shown = name.toLowerCase().indexOf(search_term) !== -1;
+		const name = widget_info.get(choice.dataset.id).name;
+		const shown = name.toLowerCase().indexOf(search_term) !== -1;
 		choice.style.display = shown ? 'block' : 'none';
 	}
 	for (const category of widget_choices.getElementsByClassName('widget-category')) {
@@ -1552,10 +1552,10 @@ void main() {
 
 function frame(time) {
 	current_time = time * 1e-3;
-	let container_width = canvas_container.offsetWidth;
-	let container_height = canvas_container.offsetHeight;
 	
-	let aspect_ratio = width / height;
+	const container_width = canvas_container.offsetWidth;
+	const container_height = canvas_container.offsetHeight;
+	const aspect_ratio = width / height;
 	let canvas_x = 0, canvas_y = 0;
 	if (container_width / aspect_ratio < container_height) {
 		// landscape mode
@@ -1589,7 +1589,7 @@ function frame(time) {
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.uniform1i(gl.getUniformLocation(program_post, 'u_texture'), 0);
-	let v_pos = gl.getAttribLocation(program_post, 'v_pos');
+	const v_pos = gl.getAttribLocation(program_post, 'v_pos');
 	gl.enableVertexAttribArray(v_pos);
 	gl.vertexAttribPointer(v_pos, 2, gl.FLOAT, false, 0, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1620,7 +1620,7 @@ function perform_step() {
 	gl.uniform2f(gl.getUniformLocation(program_main, 'ff_texture_size'), width, height);
 	
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
-	let v_pos = gl.getAttribLocation(program_main, 'v_pos');
+	const v_pos = gl.getAttribLocation(program_main, 'v_pos');
 	gl.enableVertexAttribArray(v_pos);
 	gl.vertexAttribPointer(v_pos, 2, gl.FLOAT, false, 8, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1631,7 +1631,7 @@ function perform_step() {
 	
 function compile_program(name, shaders) {
 	let program = gl.createProgram();
-	for (let type in shaders) {
+	for (const type in shaders) {
 		let source = shaders[type];
 		let gl_type;
 		if (type === 'vertex') {
@@ -1640,6 +1640,7 @@ function compile_program(name, shaders) {
 			gl_type = gl.FRAGMENT_SHADER;
 		} else {
 			show_error('unrecognized shader type: ' + type);
+			return null;
 		}
 		let shader = compile_shader(name + ' ' + type, gl_type, source);
 		if (shader === null)
@@ -1657,7 +1658,7 @@ function compile_program(name, shaders) {
 
 function set_up_framebuffer() {
 	framebuffer = gl.createFramebuffer();
-	let sampler_pixels = new Uint8Array(width * height * 4);
+	const sampler_pixels = new Uint8Array(width * height * 4);
 	sampler_pixels.fill(0);
 	set_up_rgba_texture(sampler_texture, width, height, sampler_pixels);
 	set_up_rgba_texture(framebuffer_color_texture, width, height, null);
@@ -1681,7 +1682,7 @@ function set_up_rgba_texture(texture, width, height, pixels) {
 }
 
 function compile_shader(name, type, source) {
-	let shader = gl.createShader(type);
+	const shader = gl.createShader(type);
 	gl.shaderSource(shader, source);
 	gl.compileShader(shader);
 	
