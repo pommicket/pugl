@@ -1,3 +1,4 @@
 scratch
 *.swp
 *~
+node_modules

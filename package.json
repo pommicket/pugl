@@ -1,0 +1,14 @@
+{
+  "name": "fractiform",
+  "version": "1.0.0",
+  "description": "fractals",
+  "main": "fractiform.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "pommicket",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^8.45.0"
+  }
+}

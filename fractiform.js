@@ -17,11 +17,8 @@ let program_main = null;
 let program_post = null;
 let vertex_buffer_rect;
 let vertex_buffer_main;
-let vertex_data_main;
 let canvas_container;
 let canvas;
-let ui_canvas;
-let ui_ctx;
 let framebuffer;
 let framebuffer_color_texture;
 let sampler_texture;
@@ -30,7 +27,6 @@ let ui_shown = true;
 let ui_div;
 let ui_resize;
 let viewport_width, viewport_height;
-let shift_key = false, ctrl_key = false;
 let html_id = 0;
 let widget_id = 1;
 let widget_choices;
@@ -157,15 +153,15 @@ ${type} mod_(${type} a, ${type} b) {
 //! size.default: 0.5
 
 ` + [['float', 'a'], ['vec2', 'max(a.x, a.y)'], ['vec3', 'max(a.x, max(a.y, a.z))'], ['vec4', 'max(max(a.x, a.y), max(a.z, a.w))']].map((x) => {
-	let type = x[0];
-	let max = x[1];
-	return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
+		let type = x[0];
+		let max = x[1];
+		return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
 ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	${type} a = abs(pos) / size;
 	return ${max} < 1.0 ? inside : outside;
 }
 `).join('\n');
-}).join('\n'),
+	}).join('\n'),
 	`
 //! .name: Circle
 //! .category: geometry
@@ -180,14 +176,14 @@ ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 //! size.description: radius of the circle
 
 `+ ['float', 'vec2', 'vec3', 'vec4'].map((type) => {
-	return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
+		return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
 ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	pos /= size;
 	return dot(pos, pos) < 1.0 ? inside : outside;
 }
 `).join('\n');
-}).join('\n'),
-`
+	}).join('\n'),
+	`
 //! .name: Comparator
 //! .category: basic
 //! .description: select between two inputs depending on a comparison between two values
@@ -363,7 +359,7 @@ class Parser {
 	parse_ident() {
 		this.skip_space();
 		if (this.eof()) {
-			this.set_error(`expected identifier, got EOF`);
+			this.set_error('expected identifier, got EOF');
 			return;
 		}
 		let first_char = this.string[this.i];
@@ -460,6 +456,7 @@ function parse_widget_definition(code) {
 		} else if (line.startsWith('//!')) {
 			error = `on line ${index+1}: missing space after //!`;
 		} else if (line.startsWith('//')) {
+			// comment
 		} else {
 			def_start = index;
 			return;
@@ -635,25 +632,6 @@ function rgba_hex_to_float(hex) {
 	return color;
 }
 
-function rgba_float_to_hex(flt) {
-	function comp(x) {
-		x = Math.round(x * 255);
-		if (x < 0) x = 0;
-		if (x > 255) x = 255;
-		let s = x.toString(16);
-		while (s.length < 2) {
-			s = '0' + s;
-		}
-		return s;
-	}
-	return '#' + comp(flt.r) + comp(flt.g) + comp(flt.b) + comp(flt.a);
-}
-
-function update_key_modifiers_from_event(e) {
-	shift_key = e.shiftKey;
-	ctrl_key = e.ctrlKey;
-}
-
 function update_shader() {
 	clear_error();
 	let source = get_shader_source();
@@ -688,7 +666,6 @@ void main() {
 }
 
 function on_key_press(e) {
-	update_key_modifiers_from_event(e);
 	let code = e.keyCode;
 	if (is_input(e.target)) {
 		return;
@@ -697,8 +674,7 @@ function on_key_press(e) {
 	
 	switch (code) {
 	case 32: // space
-		if (canvas_is_target)
-			perform_step();
+		perform_step();
 		break;
 	case 9: // tab
 		set_ui_shown(!ui_shown);
@@ -710,29 +686,6 @@ function on_key_press(e) {
 		break;
 	}
 }
-
-function on_key_release(e) {
-	update_key_modifiers_from_event(e);
-}
-
-
-function on_mouse_move(e) {
-	update_key_modifiers_from_event(e);
-}
-
-function distance(p0, p1) {
-	let dx = p0.x - p1.x;
-	let dy = p0.y - p1.y;
-	return Math.sqrt(dx * dx + dy * dy);
-}
-
-function on_click(e) {
-	update_key_modifiers_from_event(e);
-	if (!ui_shown) {
-		return;
-	}
-}
-
 
 function float_glsl(f) {
 	if (isNaN(f)) return '(0.0 / 0.0)';
@@ -837,7 +790,7 @@ function add_widget(func) {
 		delete_img.alt = 'delete';
 		delete_button.appendChild(delete_img);
 		delete_button.classList.add('widget-delete');
-		delete_button.addEventListener('click', function (e) {
+		delete_button.addEventListener('click', () => {
 			root.remove();
 		});
 		root.appendChild(delete_button);
@@ -901,7 +854,7 @@ function add_widget(func) {
 				console.error('bad control type');
 			}
 			
-			input.addEventListener('input', function (e) {
+			input.addEventListener('input', () => {
 				if (auto_update) {
 					update_shader();
 				}
@@ -932,7 +885,7 @@ function add_widget(func) {
 					input_element.blur();
 					e.preventDefault();
 				}
-			})
+			});
 			input_element.classList.add('entry');
 			input_element.appendChild(document.createElement('br'));
 			input_element.type = 'text';
@@ -952,7 +905,7 @@ function add_widget(func) {
 			root.appendChild(container);
 			root.appendChild(document.createTextNode(' '));
 			
-			input_element.addEventListener('input', (e) => {
+			input_element.addEventListener('input', () => {
 				if (auto_update) {
 					update_shader();
 				}
@@ -1041,7 +994,7 @@ ${this.code.join('')}
 				return {error: 'bad combination of types for ,'};
 			}
 			let v = this.next_variable();
-			let component_values = components.map(function (c) { return c.code; });
+			let component_values = components.map((c) => c.code);
 			this.add_code(`${type} ${v} = ${type}(${component_values.join()});\n`);
 			return {type: type, code: v};
 		}
@@ -1063,7 +1016,7 @@ ${this.code.join('')}
 			return {error: 'inputs should not end in .'};
 		}
 		
-		if (field.length >= 1 && field.length <= 4 && field.split('').every(function (c) { return 'xyzw'.indexOf(c) !== -1 })) {
+		if (field.length >= 1 && field.length <= 4 && field.split('').every((c) => 'xyzw'.indexOf(c) !== -1)) {
 			// swizzle
 			let vector = this.compute_input(input.substring(0, dot));
 			if ('error' in vector) {
@@ -1200,7 +1153,7 @@ function parse_widgets() {
 		let func = widget_div.dataset.func;
 		let id = parseInt(widget_div.dataset.id);
 		if (!name) {
-			return {error: `widget has no name. please give it one.`, widget: id};
+			return {error: 'widget has no name. please give it one.', widget: id};
 		}
 		const inputs = new Map();
 		const controls = new Map();
@@ -1285,10 +1238,9 @@ function import_widgets(string) {
 				continue;
 			}
 			
-			let parts = widget_str.split(';');
-			let func = parts[0];
-			let widget = {name: null, func, inputs: new Map(), controls: new Map()};
-			const info = widget_info.get(func);
+			const parts = widget_str.split(';');
+			const func = parts[0];
+			const widget = {name: null, func, inputs: new Map(), controls: new Map()};
 			parts.splice(0, 1);
 			for (const part of parts) {
 				let kv = part.split(':');
@@ -1328,6 +1280,31 @@ function import_widgets(string) {
 		];
 	}
 	
+	function assign_value(container, value) {
+		let element = container.getElementsByTagName('input')[0];
+		if (element === undefined) {
+			element = container.getElementsByTagName('select')[0];
+		}
+		if (element === undefined) {
+			element = container.getElementsByClassName('entry')[0];
+		}
+		if (element.type === 'checkbox') {
+			element.checked = value === 'true' || value === '1' ? 'checked' : '';
+		} else if (element.tagName === 'SELECT') {
+			let options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
+			if (value >= 0 && value < options.length) {
+				element.value = options[value];
+			} else if (options.indexOf(value) !== -1) {
+				element.value = value;
+			} else {
+				return {error: `bad import string (unrecognized value ${value})`};
+			}
+		} else if (element.tagName === 'DIV') {
+			element.innerText = value;
+		} else {
+			console.error('bad element', element);
+		}
+	}
 	widgets_container.innerHTML = '';
 	for (let widget of widgets) {
 		let name = widget.name;
@@ -1336,44 +1313,20 @@ function import_widgets(string) {
 		}
 		let element = add_widget(widget.func);
 		element.getElementsByClassName('widget-name')[0].innerText = name;
-		function assign_value(container, value) {
-			let element = container.getElementsByTagName('input')[0];
-			if (element === undefined) {
-				element = container.getElementsByTagName('select')[0];
-			}
-			if (element === undefined) {
-				element = container.getElementsByClassName('entry')[0];
-			}
-			if (element.type === 'checkbox') {
-				element.checked = value === 'true' || value === '1' ? 'checked' : '';
-			} else if (element.tagName === 'SELECT') {
-				let options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
-				if (value >= 0 && value < options.length) {
-					element.value = options[value];
-				} else if (options.indexOf(value) !== -1) {
-					element.value = value;
-				} else {
-					return {error: `bad import string (unrecognized value ${value})`};
-				}
-			} else if (element.tagName === 'DIV') {
-				element.innerText = value;
-			} else {
-				console.error('bad element', element);
-			}
-		}
+
 		for (const [input, value] of widget.inputs) {
 			let container = Array.from(element.getElementsByClassName('in')).find(
-				function (e) { return e.dataset.id === input; }
+				(e) => e.dataset.id === input
 			);
 			assign_value(container, value);
 		}
 		for (const [control, value] of widget.controls) {
 			let container = Array.from(element.getElementsByClassName('control')).find(
-				function (e) { return e.dataset.id === control; }
+				(e) => e.dataset.id === control
 			);
 			assign_value(container, value);
 		}
-	};
+	}
 	
 	set_display_output_and_update_shader(get_widget_by_name(output));
 }
@@ -1466,23 +1419,23 @@ function startup() {
 	code_input = document.getElementById('code');
 	error_element = document.getElementById('error');
 	
-	ui_div.style.flexBasis = ui_div.offsetWidth + "px"; // convert to px
+	ui_div.style.flexBasis = ui_div.offsetWidth + 'px'; // convert to px
 	
 	// drag to resize ui
-	ui_resize.addEventListener('mousedown', function (e) {
+	ui_resize.addEventListener('mousedown', (e) => {
 		resizing_ui = true;
 		let basis = ui_div.style.flexBasis;
 		console.assert(basis.endsWith('px'));
 		ui_resize_offset = basis.substring(0, basis.length - 2) - e.clientX;
 		e.preventDefault();
 	});
-	window.addEventListener('mouseup', function (e) {
+	window.addEventListener('mouseup', () => {
 		resizing_ui = false;
 	});
-	window.addEventListener('mousemove', function (e) {
+	window.addEventListener('mousemove', (e) => {
 		if (resizing_ui) {
 			if (e.buttons & 1) {
-				ui_div.style.flexBasis = (e.clientX + ui_resize_offset) + "px";
+				ui_div.style.flexBasis = (e.clientX + ui_resize_offset) + 'px';
 			} else {
 				resizing_ui = false;
 			}
@@ -1490,7 +1443,7 @@ function startup() {
 		e.preventDefault();
 	});
 	
-	document.getElementById('code-form').addEventListener('submit', function (e) {
+	document.getElementById('code-form').addEventListener('submit', () => {
 		import_widgets(code_input.value);
 	});
 	
@@ -1578,7 +1531,7 @@ void main() {
 				button.appendChild(document.createTextNode(widget.name));
 				button.dataset.id = id;
 				category_element.appendChild(button);
-				button.addEventListener('click', function (e) {
+				button.addEventListener('click', () => {
 					add_widget(id);
 				});
 			}
@@ -1587,16 +1540,13 @@ void main() {
 	
 	set_up_framebuffer();
 	update_widget_choices();
-	widget_search.addEventListener('input', function (e) {
+	widget_search.addEventListener('input', () => {
 		update_widget_choices();
 	});
 	import_widgets_from_local_storage();
 	
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
-	window.addEventListener('keyup', on_key_release);
-	window.addEventListener('mousemove', on_mouse_move);
-	window.addEventListener('click', on_click);
 	
 }
 
