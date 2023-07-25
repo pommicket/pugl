@@ -67,7 +67,7 @@
 	button:hover, input:hover, input:active {
 		background-color: #fff3;
 	}
-	button:active, button[data-selected="true"] {
+	button:active {
 		background-color: #fff6;
 	}
 	button:focus, input:focus {
@@ -76,16 +76,11 @@
 	#ui-resize {
 		flex-grow: 0;
 		flex-shrink: 0;
-		width: 8px;
+		width: 0.3cm;
 		cursor: col-resize;
 		display: flex;
 		justify-content: center;
-	}
-	#ui-resize-bar {
-		width: 2px;
-		height: 100%;
-		background: #fff;
-		margin: auto 0;
+		background: linear-gradient(90deg, #000, #444 30%, #fff 50%, #444 70%, #000);
 	}
 	#ui {
 		overflow-x: auto;
@@ -101,9 +96,6 @@
 		border: 2px solid var(--ui-border);
 		background-color: transparent;
 		color: white;
-		padding: 0;
-	}
-	#ui input[type=color] {
 		padding: 0;
 	}
 	.in select {
@@ -122,16 +114,9 @@
 		margin-left: 0.5em;
 		white-space: nowrap;
 	}
-	input[type="number"] {
-		/* disable increment/decrement buttons (firefox) */
-		-moz-appearance: textfield;
-	}
-	input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
-		/* disable increment/decrement buttons (webkit) */
-		-webkit-appearance: none;
-	}
-	img.icon {
-		height: 1.5em;
+	input[type="submit"] {
+		padding-left: 0.5em;
+		padding-right: 0.5em;
 	}
 	.widget {
 		display: block;
@@ -162,9 +147,10 @@
 		filter: saturate(500%);
 	}
 	.widget-choice {
-		width: 100%;
+		width: calc(100% - 0.4em);
 		border: 1px solid white;
-		margin: 0;
+		margin: 0.2em;
+		padding: 0.1em 0;
 	}
 	.widget-choice:focus {
 		outline: 0;
@@ -172,6 +158,7 @@
 	}
 	#widget-choices {
 		margin: 0.2em;
+		padding-bottom: 0.3em;
 		border-bottom: 2px solid white;
 	}
 	</style>
@@ -192,13 +179,13 @@
 		<div id="ui">
 			<form action="#" method="dialog" id="code-form">
 				<input type="text" placeholder="Code" id="code">
-				<input type="submit" value="✓">
+				<input type="submit" value="load">
 			</form>
 			Add <input type="text" id="widget-search" placeholder="Search">
 			<div id="widget-choices"></div>
 			<div id="widgets-container"></div>
 		</div>
-		<div id="ui-resize"><div id="ui-resize-bar"></div></div>
+		<div id="ui-resize"></div>
 		
 		<div id="canvas-container">
 			<canvas id="canvas">

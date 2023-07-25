@@ -2,8 +2,7 @@
 
 /*
 TODO:
-- widgets:
-	- rotate 3D
+- rearrange widgets
 */
 
 let gl;
@@ -293,6 +292,26 @@ ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 	return clamp(x, minimum, maximum);
 }
 `).join('\n'),
+	`
+//! .name: Rotate 3D
+//! .id: rot3
+//! .category: geometry
+//! .description: rotate a 3D vector about an axis
+//! v.description: the vector to rotate
+//! axis.description: the axis to rotate around. the magnitude must be non-zero but otherwise is ignored.
+//! axis.default: 0,1,0
+//! angle.name: θ
+//! angle.description: the angle in radians
+//! angle.default: 0.57
+
+vec3 rot3(vec3 v, vec3 axis, float angle) {
+	axis = normalize(axis);
+	float c = cos(angle);
+	float s = sin(angle);
+	// https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+	return v * c + cross(axis, v) * s + axis * dot(axis, v) * (1.0 - c);
+}
+`,
 ];
 
 function is_input(element) {
