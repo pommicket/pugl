@@ -43,7 +43,7 @@ ${type} buffer(${type} x) {
 	return x;
 }`).join('\n'),
 	`
-//! .name: Mix
+//! .name: Mix (lerp)
 //! .category: basic
 //! .id: mix
 //! .description: weighted average of two inputs
@@ -88,7 +88,7 @@ vec3 last_frame(vec2 pos, int wrap, int sample) {
 `,
 	`
 //! .name: Weighted add
-//! .category: basic
+//! .category: math
 //! .description: add two numbers or vectors with weights
 //! aw.name: a weight
 //! aw.default: 1
@@ -102,7 +102,7 @@ ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 `).join('\n'),
 	`
 //! .name: Multiply
-//! .category: basic
+//! .category: math
 //! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} mul(${type} a, ${type} b) {
@@ -111,7 +111,7 @@ ${type} mul(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Power
-//! .category: basic
+//! .category: math
 //! .id: pow
 //! .description: take one number to the power of another
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
@@ -121,7 +121,7 @@ ${type} pow_(${type} a, ${type} b) {
 `).join('\n'),
 	`
 //! .name: Modulo
-//! .category: basic
+//! .category: math
 //! .id: mod
 //! .description: wrap a value at a certain limit
 //! a.name: a
@@ -312,6 +312,50 @@ vec3 rot3(vec3 v, vec3 axis, float angle) {
 	return v * c + cross(axis, v) * s + axis * dot(axis, v) * (1.0 - c);
 }
 `,
+	`
+//! .name: Remap
+//! .id: remap
+//! .category: basic
+//! .description: linearly remap a value from one interval to another
+//! x.id: x
+//! a1.default: 0
+//! a1.description: negative endpoint of source interval
+//! b1.default: 1
+//! b1.description: positive endpoint of source interval
+//! a2.default: -1
+//! a2.description: positive endpoint of source interval
+//! b2.default: 1
+//! b2.description: positive endpoint of destination interval
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
+	return (x - a1) / (b1 - a1) * (b2 - a2) + a2;
+}
+`).join('\n'),
+	`
+//! .name: Smoothstep
+//! .id: smoothstep
+//! .category: curves
+//! .description: smoothly transition between two values (with Hermite interpolation)
+//! t.id: t
+//! t1.name: t₁
+//! t1.description: first input point
+//! t1.default: 0
+//! t2.name: t₂
+//! t2.description: second input point
+//! t2.default: 1
+//! out1.name: out₁
+//! out1.description: output value when t ≤ t₁
+//! out1.default: 0
+//! out2.name: out₂
+//! out2.description: output value when t ≥ t₂
+//! out2.default: 1
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) {
+	return mix(out1, out2, smoothstep(t1, t2, t));
+}
+`).join('\n')
 ];
 
 function is_input(element) {
@@ -675,7 +719,7 @@ void main() {
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `;
-	program_main = compile_program('main', {'vertex': vertex_code, 'fragment': fragment_code});
+	program_main = compile_program('main', {vertex: vertex_code, fragment: fragment_code});
 }
 
 function on_key_press(e) {
@@ -1337,12 +1381,18 @@ function import_widgets(string) {
 			const container = Array.from(element.getElementsByClassName('in')).find(
 				(e) => e.dataset.id === input
 			);
+			if (!container) {
+				return {error: `bad import string (input ${input} does not exist)`};
+			}
 			assign_value(container, value);
 		}
 		for (const [control, value] of widget.controls) {
 			const container = Array.from(element.getElementsByClassName('control')).find(
 				(e) => e.dataset.id === control
 			);
+			if (!container) {
+				return {error: `bad import string (control ${control} does not exist)`};
+			}
 			assign_value(container, value);
 		}
 	}
@@ -1478,7 +1528,7 @@ function startup() {
 	
 	
 	program_post = compile_program('post', {
-		'vertex': `
+		vertex: `
 attribute vec2 v_pos;
 varying vec2 uv;
 void main() {
@@ -1486,7 +1536,7 @@ void main() {
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `,
-		'fragment': `
+		fragment: `
 #ifdef GL_ES
 precision highp float;
 #endif
