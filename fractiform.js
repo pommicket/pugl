@@ -318,12 +318,16 @@ vec3 rot3(vec3 v, vec3 axis, float angle) {
 //! .category: basic
 //! .description: linearly remap a value from one interval to another
 //! x.id: x
+//! a1.name: a₁
 //! a1.default: 0
 //! a1.description: negative endpoint of source interval
+//! b1.name: b₁
 //! b1.default: 1
 //! b1.description: positive endpoint of source interval
+//! a2.name: a₂
 //! a2.default: -1
 //! a2.description: positive endpoint of source interval
+//! b2.name: b₂
 //! b2.default: 1
 //! b2.description: positive endpoint of destination interval
 
