@@ -2,6 +2,11 @@
 
 /*
 TODO:
+- widgets:
+   - slider
+   - staircase "wave" (floor but with parameters)
+   - triangle wave
+   - square wave
 - rearrange widgets
 */
 
@@ -659,7 +664,7 @@ function set_ui_shown(to) {
 	ui_resize.style.visibility = ui_viz;
 }
 
-function rgba_hex_to_float(hex) {
+function color_hex_to_float(hex) {
 	let r;
 	let g;
 	let b;
@@ -691,6 +696,22 @@ function rgba_hex_to_float(hex) {
 	};
 	Object.preventExtensions(color);
 	return color;
+}
+
+function color_float_to_hex(color) {
+	let r = Math.round(color.r * 255);
+	let g = Math.round(color.g * 255);
+	let b = Math.round(color.b * 255);
+	let a = Math.round((color.a ?? 1) * 255);
+	function component(x) {
+		x = x.toString(16);
+		while (x.length < 2)
+			x = '0' + x;
+		return x;
+	}
+	let ca = component(a);
+	if (ca === 'ff') ca = '';
+	return `#${component(r)}${component(g)}${component(b)}${ca}`;
 }
 
 function update_shader() {
@@ -831,8 +852,59 @@ function set_display_output_and_update_shader(to) {
 	for (const widget of document.querySelectorAll('.widget[data-display="1"]')) {
 		widget.dataset.display = '0';
 	}
-	to.dataset.display = '1';
+	if (to) {
+		to.dataset.display = '1';
+	}
 	update_shader();
+}
+
+function update_input_element(input_element) {
+	const container = input_element.parentElement;
+	
+	{
+		// add color input if the text is a color
+		let color_input = container.querySelector('input[type="color"]');
+		const color_value = color_hex_to_float(input_element.innerText);
+		if (color_value) {
+			if (!color_input) {
+				color_input = document.createElement('input');
+				color_input.type = 'color';
+				color_input.addEventListener('input', () => {
+					// this is kinda complicated because we
+					// want to preserve whether or not there's an alpha channel
+					// (but input[type=color] doesn't support alpha)
+					const prev_value = input_element.innerText;
+					let color = color_hex_to_float(color_input.value);
+					color.a = color_hex_to_float(prev_value).a;
+					const specify_alpha = prev_value.length === 5 || prev_value.length === 9;
+					let new_value = color_float_to_hex(color);
+					console.assert(new_value.length === 7 || new_value.length === 9);
+					if (specify_alpha) {
+						if (new_value.length === 7)
+							new_value += 'ff';
+					} else {
+						new_value = new_value.slice(0, 7);
+					}
+					input_element.innerText = new_value;
+					if (auto_update)
+						update_shader();
+				});
+				container.appendChild(color_input);
+			}
+			// if a color input has already been created for this input,
+			// we just need to update its value and show it.
+			color_input.value = color_float_to_hex({
+				r: color_value.r,
+				g: color_value.g,
+				b: color_value.b,
+			}).slice(0, 7);
+			color_input.style.display = 'inline-block';
+		} else {
+			if (color_input) {
+				color_input.style.display = 'none';
+			}
+		}
+	}
 }
 
 function add_widget(func) {
@@ -867,6 +939,7 @@ function add_widget(func) {
 		title.appendChild(document.createTextNode(info.name + ' '));
 		let name_input = document.createElement('div');
 		name_input.contentEditable = true;
+		name_input.spellcheck = false;
 		name_input.classList.add('widget-name');
 		name_input.addEventListener('input', () => update_shader());
 		
@@ -943,6 +1016,7 @@ function add_widget(func) {
 			container.dataset.id = param.id;
 			let input_element = document.createElement('div');
 			input_element.contentEditable = true;
+			input_element.spellcheck = false;
 			input_element.addEventListener('keydown', (e) => {
 				if (e.keyCode === 13) {
 					input_element.blur();
@@ -968,11 +1042,14 @@ function add_widget(func) {
 			root.appendChild(container);
 			root.appendChild(document.createTextNode(' '));
 			
+			
 			input_element.addEventListener('input', () => {
+				update_input_element(input_element);
 				if (auto_update) {
 					update_shader();
 				}
 			});
+			update_input_element(input_element);
 		}
 	}
 	
@@ -1063,7 +1140,7 @@ ${this.code.join('')}
 		}
 		
 		if (input[0] === '#') {
-			let color = rgba_hex_to_float(input);
+			let color = color_hex_to_float(input);
 			if (color === null) {
 				return {error: 'bad color: ' + input};
 			}
@@ -1341,10 +1418,11 @@ function import_widgets(string) {
 			{
 				name: 'output',
 				func: 'buffer',
-				inputs: Map.from(['input', '#acabff']),
+				inputs: new Map([['input', '#acabff']]),
 				controls: new Map(),
 			}
 		];
+		output = 'output';
 	}
 	
 	function assign_value(container, value) {
@@ -1368,6 +1446,7 @@ function import_widgets(string) {
 			}
 		} else if (element.tagName === 'DIV') {
 			element.innerText = value;
+			update_input_element(element);
 		} else {
 			console.error('bad element', element);
 		}
