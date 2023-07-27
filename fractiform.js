@@ -411,6 +411,57 @@ ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) {
 	return mix(out1, out2, smoothstep(t1, t2, t));
 }
+`).join('\n'),
+	`
+//! .name: Arctangent
+//! .id: arctan2
+//! .category: math
+//! .description: The arctangent function (radians) with 2 parameters (set x = 1 for normal arctangent)
+//! y.id: y
+//! x.id: x
+//! x.default: 1
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} arctan2(${type} y, ${type} x) {
+	return atan(y, x);
+}
+`).join('\n'),
+	`
+//! .name: Tangent
+//! .id: tan
+//! .category: math
+//! .description: The tangent function (radians)
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} tang(${type} x) {
+	return tan(x);
+}
+`).join('\n'),
+	`
+//! .name: Arcsine
+//! .id: arcsin
+//! .category: math
+//! .description: The arcsine function (radians) — input will be clamped to [−1, 1]
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} arcsin(${type} x) {
+	return asin(clamp(x, -1.0, 1.0));
+}
+`).join('\n'),
+	`
+//! .name: Sigmoid
+//! .id: sigmoid
+//! .category: curves
+//! .description: The sigmoid function — smoothly maps the interval (−∞, ∞) to (a, b)
+//! x.description: input value
+//! a.description: output value for very negative inputs
+//! b.description: output value for very positive inputs
+//! sharpness.description: scale factor for input value — higher = quicker transition from a to b
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
+	return mix(a, b, 1.0 / (1.0 + exp(-sharpness * x)));
+}
 `).join('\n')
 ];
 
