@@ -59,7 +59,7 @@ ${type} buffer(${type} x) {
 //! x.name: mix
 //! x.default: 0.5
 //! c.name: clamp mix
-//! c.type: checkbox
+//! c.control: checkbox
 //! c.description: clamp the mix input to the [0, 1] range
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
@@ -74,10 +74,10 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 //! .description: sample from the previous frame
 //! pos.description: position to sample — bottom-left corner is (−1, −1), top-right corner is (1, 1)
 //! wrap.name: wrap mode
-//! wrap.type: select:clamp|wrap
+//! wrap.control: select:clamp|wrap
 //! wrap.description: how to deal with the input components if they go outside [−1, 1]
 //! sample.name: sample mode
-//! sample.type: select:linear|nearest
+//! sample.control: select:linear|nearest
 //! sample.description: how positions in between pixels should be sampled
 
 vec3 last_frame(vec2 pos, int wrap, int sample) {
@@ -221,7 +221,7 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 //! center.description: this value is added to the output at the end
 //! nonneg.name: non-negative
 //! nonneg.description: make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp
-//! nonneg.type: checkbox
+//! nonneg.control: checkbox
 
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
 ${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
@@ -240,7 +240,7 @@ ${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type}
 //! theta.description: angle to rotate by (in radians)
 //! dir.name: direction
 //! dir.description: direction of rotation
-//! dir.type: select:CCW|CW
+//! dir.control: select:CCW|CW
 
 vec2 rotate2D(vec2 v, float theta, int dir) {
 	if (dir == 1) theta = -theta;
@@ -558,7 +558,7 @@ function parse_widget_definition(code) {
 				case 'name':
 				case 'description':
 				case 'default':
-				case 'type':
+				case 'control':
 					param[property] = value;
 					break;
 				default:
@@ -635,11 +635,11 @@ function parse_widget_definition(code) {
 		definition_params.forEach((p, index) => {
 			const is_control = p.type === 'int';
 			const param = params.get(p.name);
-			if (param.type && !is_control) {
-				parser.set_error(`parameter ${p.name} should have type int since it's a ${param.type}, but it has type ${p.type}`);
+			if (param.control && !is_control) {
+				parser.set_error(`parameter ${p.name} should have type int since it's a ${param.control}, but it has type ${p.type}`);
 			}
-			if (!param.type && is_control) {
-				parser.set_error(`parameter ${p.name} has type int, so you should set a type for it, e.g. //! ${p.name}.type: checkbox`);
+			if (!param.control && is_control) {
+				parser.set_error(`parameter ${p.name} has type int, so you should set a control type for it, e.g. //! ${p.name}.control: checkbox`);
 			}
 			if (!is_control) {
 				input_types.set(param.id, p.type);
@@ -647,7 +647,7 @@ function parse_widget_definition(code) {
 			param_order.set(param.id, index);
 		});
 		for (const param of params.values()) {
-			if (!input_types.has(param.id) && !param.type) {
+			if (!input_types.has(param.id) && !param.control) {
 				parser.set_error(`parameter ${param.id} not specified in definition of ${function_name}`);
 			}
 		}
@@ -1007,12 +1007,12 @@ function add_widget(func) {
 	
 	// parameters
 	for (const param of info.params.values()) {
-		if (param.type) {
+		if (param.control) {
 			// control
 			let container = document.createElement('div');
 			container.classList.add('control');
 			container.dataset.id = param.id;
-			let type = param.type;
+			let type = param.control;
 			let input;
 			if (type === 'checkbox') {
 				input = document.createElement('input');
