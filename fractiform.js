@@ -281,6 +281,53 @@ vec3 hue_shift(vec3 color, float shift) {
 }
 `,
 	`
+//! .name: Saturate
+//! .category: colors
+//! .id: saturate
+//! .description: change saturation of color
+//! color.description: input color
+//! amount.description: how much to change saturation by (−1 to 1 range)
+
+vec3 saturate(vec3 color, float amount) {
+	vec3 c = color;
+	// rgb to hsv
+	vec3 hsv;
+	{
+		vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+		vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+		vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+		float d = q.x - min(q.w, q.y);
+		float e = 1.0e-10;
+		hsv = vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+	}
+	
+	hsv.y = clamp(hsv.y + amount, 0.0, 1.0);
+	c = hsv;
+	
+	// hsv to rgb
+	{
+		vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+		vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+		return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+	}
+}
+`,
+	`
+//! .name: Brightness-contrast
+//! .category: colors
+//! .description: change brightness/contrast of color
+//! color.description: input color
+//! brightness.description: how much to change brightness by (−1 to 1 range)
+//! contrast.description: how much to change contrast by (−1 to 1 range)
+
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
+	brightness = clamp(brightness, -1.0, 1.0);
+	contrast = clamp(contrast, -1.0, 1.0);
+	return clamp((contrast + 1.0) / (1.0 - contrast) * (color - 0.5) + (brightness + 0.5), 0.0, 1.0);
+}
+`).join('\n'),
+	`
 //! .name: Clamp
 //! .category: basic
 //! .id: clamp
@@ -669,6 +716,7 @@ function color_hex_to_float(hex) {
 	let g;
 	let b;
 	let a;
+	hex = hex.trim();
 	
 	if (hex.length === 7 || hex.length === 9) {
 		// #rrggbb or #rrggbbaa
