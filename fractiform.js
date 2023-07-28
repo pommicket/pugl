@@ -4,9 +4,6 @@
 TODO:
 - widgets:
    - slider
-   - staircase "wave" (floor but with parameters)
-   - triangle wave
-   - square wave
 - rearrange widgets
 */
 
@@ -203,10 +200,11 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 }
 `).join('\n'),
 	`
-//! .name: Sine wave
+//! .name: Wave
 //! .category: curves
-//! .description: a wave based on the sin function
+//! .description: sine, triangle, square, sawtooth waves
 //! .id: sin
+//! type.control: select:sin|tri|squ|saw
 //! t.description: position in the wave
 //! t.default: .time
 //! period.description: period of the wave
@@ -224,8 +222,20 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 //! nonneg.control: checkbox
 
 ` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
-${type} sine_wave(${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
-	${type} v = sin((t / period - phase) * 6.2831853);
+${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
+	${type} v = ${type}(0.0);
+	t = t / period - phase;
+	if (type == 0) {
+		v = sin(t * 6.2831853);
+	} else if (type == 1) {
+		t = mod(t, 1.0);
+		${type} s = step(${type}(0.5), t);
+		v = mix(4.0 * t - 1.0, 3.0 - 4.0 * t, s);
+	} else if (type == 2) {
+		v = mod(floor(2.0 * t) + 1.0, 2.0) * 2.0 - 1.0;
+	} else if (type == 3) {
+		v = mod(t, 1.0) * 2.0 - 1.0;
+	}
 	if (nonneg != 0) v = v * 0.5 + 0.5;
 	return amp * v + center;
 }
@@ -462,7 +472,22 @@ ${type} arcsin(${type} x) {
 ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 	return mix(a, b, 1.0 / (1.0 + exp(-sharpness * x)));
 }
-`).join('\n')
+`).join('\n'),
+	`
+//! .name: Staircase (floor)
+//! .id: floor
+//! .category: curves
+//! .description: The floor function — largest integer less than x
+//! x.description: input value
+//! stepw.description: step width
+//! steph.description: step height
+//! phase.description: proportion of a step to be added to input
+//! phase.default: 0
+` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
+	return floor(x / stepw + phase) * steph;
+}
+`).join('\n'),
 ];
 
 function is_input(element) {
@@ -1067,6 +1092,7 @@ function add_widget(func) {
 			let input;
 			if (type === 'checkbox') {
 				input = document.createElement('input');
+				input.classList.add('entry');
 				input.type = 'checkbox';
 				if (param['default']) {
 					input.checked = 'checked';
@@ -1075,6 +1101,7 @@ function add_widget(func) {
 				let options = type.substring('select:'.length).split('|');
 				
 				input = document.createElement('select');
+				input.classList.add('entry');
 				for (let opt of options) {
 					let option = document.createElement('option');
 					option.appendChild(document.createTextNode(opt));
@@ -1525,14 +1552,10 @@ function import_widgets(string) {
 	}
 	
 	function assign_value(container, value) {
-		let element = container.getElementsByTagName('input')[0];
-		if (element === undefined) {
-			element = container.getElementsByTagName('select')[0];
-		}
-		if (element === undefined) {
-			element = container.getElementsByClassName('entry')[0];
-		}
-		if (element.type === 'checkbox') {
+		let element = container.getElementsByClassName('entry')[0];
+		if (!element) {
+			console.error('container',container,'has no input entry');
+		} else if (element.type === 'checkbox') {
 			element.checked = value === 'true' || value === '1' ? 'checked' : '';
 		} else if (element.tagName === 'SELECT') {
 			let options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
