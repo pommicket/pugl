@@ -139,17 +139,28 @@
 	.widget[data-display="1"] {
 		background: #ff04;
 	}
+	.widget.dragging {
+		background: #aaf6;
+	}
 	.widget-title {
 		font-weight: bold;
 	}
-	.widget-delete {
-		border: 0;
-	}
-	.widget-delete img {
+	.widget-button {
 		width: 1.5em;
-		vertical-align: bottom;
+		height: 1.5em;
+		border: 0;
+		margin-top: 0.2em;
+		vertical-align: top;
+		background-size: contain;
 	}
-	.widget-delete:hover, .widget-delete:active {
+	.widget-move {
+		background-image: url(move.svg);
+	}
+	.widget-delete {
+		background-image: url(x.svg);
+	}
+	
+	.widget-button:hover, .widget-button:active {
 		background-color: transparent;
 		outline: 0;
 		filter: saturate(500%);

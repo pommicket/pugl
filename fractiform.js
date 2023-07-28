@@ -4,7 +4,6 @@
 TODO:
 - widgets:
    - slider
-- rearrange widgets
 */
 
 let gl;
@@ -1031,6 +1030,13 @@ function update_input_element(input_element) {
 	}
 }
 
+let dragging_widget = null;
+window.addEventListener('mouseup', () => {
+	dragging_widget = null;
+	const element = document.querySelector('.widget.dragging');
+	if (element) element.classList.remove('dragging');
+});
+
 function add_widget(func) {
 	let info = widget_info.get(func);
 	console.assert(info !== undefined, 'bad widget ID: ' + func);
@@ -1038,20 +1044,48 @@ function add_widget(func) {
 	root.dataset.func = func;
 	root.dataset.id = widget_id++;
 	root.classList.add('widget');
+	root.addEventListener('mouseover', (e) => {
+		switch (root.compareDocumentPosition(dragging_widget)) {
+		case Node.DOCUMENT_POSITION_DISCONNECTED:
+		case Node.DOCUMENT_POSITION_CONTAINS:
+		case Node.DOCUMENT_POSITION_CONTAINED_BY:
+			console.error('unexpected compareDocumentPosition return value');
+			break;
+		case Node.DOCUMENT_POSITION_PRECEDING:
+			// dragging up
+			dragging_widget.before(root);
+			break
+		case Node.DOCUMENT_POSITION_FOLLOWING:
+			// dragging down
+			dragging_widget.after(root);
+			break;
+		}
+	});
 	
 	{
 		// delete button
 		let delete_button = document.createElement('button');
-		let delete_img = document.createElement('img');
-		delete_img.src = 'x.svg';
-		delete_img.alt = 'delete';
-		delete_button.appendChild(delete_img);
+		delete_button.ariaLabel = 'delete';
 		delete_button.classList.add('widget-delete');
+		delete_button.classList.add('widget-button');
 		delete_button.addEventListener('click', () => {
 			root.remove();
 			update_shader();
 		});
 		root.appendChild(delete_button);
+	}
+	
+	{
+		// move button
+		let move_button = document.createElement('button');
+		move_button.ariaLabel = 'move';
+		move_button.classList.add('widget-move');
+		move_button.classList.add('widget-button');
+		move_button.addEventListener('mousedown', () => {
+			dragging_widget = root;
+			root.classList.add('dragging');
+		});
+		root.appendChild(move_button);
 	}
 	
 	{ // title
