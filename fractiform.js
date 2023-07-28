@@ -2,8 +2,7 @@
 
 /*
 TODO:
-- widgets:
-   - slider
+- why isn't slider dragging
 */
 
 let gl;
@@ -43,6 +42,22 @@ const builtin_widgets = [
 ${type} buffer(${type} x) {
 	return x;
 }`).join('\n'),
+	`
+//! .name: Slider
+//! .category: basic
+//! .description: an adjustable slider between two values.
+//! x.id: x
+//! x.default: 0.5
+//! x.control: slider
+//! min_val.id: min
+//! min_val.default: 0
+//! max_val.id: max
+//! max_val.default: 1
+
+float slider(float x, float min_val, float max_val) {
+	return mix(min_val, max_val, x);
+}
+`,
 	`
 //! .name: Mix (lerp)
 //! .category: basic
@@ -478,7 +493,9 @@ ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 //! .category: curves
 //! .description: The floor function — largest integer less than x
 //! x.description: input value
+//! stepw.name: step w
 //! stepw.description: step width
+//! steph.name: step h
 //! steph.description: step height
 //! phase.description: proportion of a step to be added to input
 //! phase.default: 0
@@ -575,6 +592,17 @@ class Parser {
 	advance() {
 		this.i += 1;
 	}
+}
+
+function control_type(control) {
+	if (control.startsWith('select:')) {
+		return 'int';
+	} else if (control === 'checkbox') {
+		return 'int';
+	} else if (control === 'slider') {
+		return 'float';
+	}
+	return null;
 }
 
 function parse_widget_definition(code) {
@@ -708,15 +736,21 @@ function parse_widget_definition(code) {
 		const input_types = new Map();
 		const param_order = new Map();
 		definition_params.forEach((p, index) => {
-			const is_control = p.type === 'int';
 			const param = params.get(p.name);
-			if (param.control && !is_control) {
-				parser.set_error(`parameter ${p.name} should have type int since it's a ${param.control}, but it has type ${p.type}`);
+			if (param.control) {
+				const expected_type = control_type(param.control);
+				if (!expected_type) {
+					parser.set_error(`bad control type: '${param.control}'`);
+				}
+				if (p.type !== expected_type) {
+					parser.set_error(`parameter ${p.name} should have type ${expected_type} since it's a ${param.control}, but it has type ${p.type}`);
+				}
 			}
-			if (!param.control && is_control) {
+			
+			if (!param.control && p.type === 'int') {
 				parser.set_error(`parameter ${p.name} has type int, so you should set a control type for it, e.g. //! ${p.name}.control: checkbox`);
 			}
-			if (!is_control) {
+			if (!param.control) {
 				input_types.set(param.id, p.type);
 			}
 			param_order.set(param.id, index);
@@ -1045,6 +1079,8 @@ function add_widget(func) {
 	root.dataset.id = widget_id++;
 	root.classList.add('widget');
 	root.addEventListener('mouseover', (e) => {
+		if (!dragging_widget) return;
+		
 		switch (root.compareDocumentPosition(dragging_widget)) {
 		case Node.DOCUMENT_POSITION_DISCONNECTED:
 		case Node.DOCUMENT_POSITION_CONTAINS:
@@ -1146,11 +1182,22 @@ function add_widget(func) {
 				if (param['default']) {
 					input.value = param['default'];
 				}
+			} else if (type === 'slider') {
+				input = document.createElement('input');
+				input.classList.add('entry');
+				input.type = 'range';
+				input.min = 0;
+				input.max = 1;
+				input.step = 'any';
+				input.value = 0;
+				if (param['default']) {
+					input.value = param['default'];
+				}
 			} else {
 				console.error('bad control type');
 			}
 			
-			input.addEventListener('input', () => {
+			input.addEventListener(input.type === 'range' ? 'change' : 'input', () => {
 				if (auto_update) {
 					update_shader();
 				}
@@ -1476,6 +1523,8 @@ function parse_widgets() {
 			let value;
 			if (input.tagName === 'INPUT' && input.type == 'checkbox') {
 				value = input.checked ? 1 : 0;
+			} else if (input.tagName === 'INPUT') {
+				value = float_glsl(parseFloat(input.value));
 			} else if (input.tagName === 'SELECT') {
 				value = Array.from(input.getElementsByTagName('option'))
 					.map((o) => o.value)
@@ -1591,6 +1640,8 @@ function import_widgets(string) {
 			console.error('container',container,'has no input entry');
 		} else if (element.type === 'checkbox') {
 			element.checked = value === 'true' || value === '1' ? 'checked' : '';
+		} else if (element.tagName === 'INPUT') {
+			element.value = value;
 		} else if (element.tagName === 'SELECT') {
 			let options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
 			if (value >= 0 && value < options.length) {
