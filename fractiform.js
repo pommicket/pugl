@@ -2,7 +2,7 @@
 
 /*
 TODO:
-- why isn't slider dragging
+- make uniforms for each control so they can be updated without recompiling
 */
 
 let gl;
@@ -1188,7 +1188,7 @@ function add_widget(func) {
 				input.type = 'range';
 				input.min = 0;
 				input.max = 1;
-				input.step = 'any';
+				input.step = 0.001;
 				input.value = 0;
 				if (param['default']) {
 					input.value = param['default'];
@@ -1798,8 +1798,8 @@ function startup() {
 			} else {
 				resizing_ui = false;
 			}
+			e.preventDefault();
 		}
-		e.preventDefault();
 	});
 	
 	document.getElementById('code-form').addEventListener('submit', () => {

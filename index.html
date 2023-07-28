@@ -55,10 +55,6 @@
 		position: absolute;
 	}
 	
-	#ui-canvas {
-		border: 2px solid var(--ui-border);
-	}
-	
 	button {
 		border: 2px solid var(--ui-border);
 		background-color: black;
@@ -71,7 +67,7 @@
 		background-color: #fff6;
 	}
 	button:focus, input:focus {
-		outline: 2px solid #0a0;
+		outline: 1px solid #0f0;
 	}
 	#ui-resize {
 		flex-grow: 0;
@@ -126,6 +122,10 @@
 		height: 1.3em;
 		width: 1.3em;
 	}
+	input[type="range"] {
+		max-height: 1.2em;
+		vertical-align: middle;
+	}
 	.widget {
 		display: block;
 		border-bottom: 2px solid #777;
@@ -149,8 +149,7 @@
 		width: 1.5em;
 		height: 1.5em;
 		border: 0;
-		margin-top: 0.2em;
-		vertical-align: top;
+		vertical-align: middle;
 		background-size: contain;
 	}
 	.widget-move {
