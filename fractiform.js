@@ -1078,7 +1078,7 @@ function add_widget(func) {
 	root.dataset.func = func;
 	root.dataset.id = widget_id++;
 	root.classList.add('widget');
-	root.addEventListener('mouseover', (e) => {
+	root.addEventListener('mouseover', () => {
 		if (!dragging_widget) return;
 		
 		switch (root.compareDocumentPosition(dragging_widget)) {
@@ -1090,7 +1090,7 @@ function add_widget(func) {
 		case Node.DOCUMENT_POSITION_PRECEDING:
 			// dragging up
 			dragging_widget.before(root);
-			break
+			break;
 		case Node.DOCUMENT_POSITION_FOLLOWING:
 			// dragging down
 			dragging_widget.after(root);
@@ -1521,7 +1521,7 @@ function parse_widgets() {
 			let id = control.dataset.id;
 			let input = control.getElementsByClassName('control-input')[0];
 			let value;
-			if (input.tagName === 'INPUT' && input.type == 'checkbox') {
+			if (input.tagName === 'INPUT' && input.type === 'checkbox') {
 				value = input.checked ? 1 : 0;
 			} else if (input.tagName === 'INPUT') {
 				value = float_glsl(parseFloat(input.value));
@@ -1953,7 +1953,7 @@ function frame(time) {
 	gl.vertexAttribPointer(v_pos, 2, gl.FLOAT, false, 0, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
 	
-	if (requestAnimationFrame == null) {
+	if (!requestAnimationFrame) {
 		show_error('your browser doesnt support requestAnimationFrame.\noh well.');
 		return;
 	}
