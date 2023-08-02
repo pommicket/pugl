@@ -24,10 +24,9 @@ let widget_search;
 let widgets_container;
 let code_input;
 let error_element;
-let auto_update = true;
 let parsed_widgets;
 
-let width = 1920, height = 1920;
+const width = 1920, height = 1920;
 
 const builtin_widgets = [
 	`
@@ -160,8 +159,8 @@ ${type} mod_(${type} a, ${type} b) {
 //! size.default: 0.5
 
 ` + [['float', 'a'], ['vec2', 'max(a.x, a.y)'], ['vec3', 'max(a.x, max(a.y, a.z))'], ['vec4', 'max(max(a.x, a.y), max(a.z, a.w))']].map((x) => {
-		let type = x[0];
-		let max = x[1];
+		const type = x[0];
+		const max = x[1];
 		return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
 ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	${type} a = abs(pos) / size;
@@ -504,6 +503,10 @@ ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 `).join('\n'),
 ];
 
+function auto_update_enabled() {
+	return true;
+}
+
 function is_input(element) {
 	if (!element) return false;
 	for (let e = element; e; e = e.parentElement) {
@@ -565,7 +568,7 @@ class Parser {
 			this.set_error('expected identifier, got EOF');
 			return;
 		}
-		let first_char = this.string[this.i];
+		const first_char = this.string[this.i];
 		if (!first_char.match(/[a-zA-Z_]/)) {
 			this.set_error(`expected identifier, got '${first_char}'`);
 			return;
@@ -612,8 +615,8 @@ function parse_widget_definition(code) {
 	let category = undefined;
 	let def_start = undefined;
 	let error = undefined;
-	let params = new Map();
-	let param_regex = /^[a-zA-Z_][a-zA-Z0-9_]*/gu;
+	const params = new Map();
+	const param_regex = /^[a-zA-Z_][a-zA-Z0-9_]*/gu;
 	
 	lines.forEach((line, index) => {
 		if (error) return;
@@ -696,15 +699,15 @@ function parse_widget_definition(code) {
 	let function_name;
 	while (!parser.error && !parser.eof()) {
 		const definition_start = parser.i;
-		let return_type = parser.parse_type();
-		let fname = parser.parse_ident();
+		const return_type = parser.parse_type();
+		const fname = parser.parse_ident();
 		if (!function_name) function_name = fname;
 		if (!parser.error && fname !== function_name) {
 			return {error: `function defined as both '${function_name}' and '${fname}'`};
 		}
 		if (!id) id = function_name;
 		
-		let definition_params = [];
+		const definition_params = [];
 		parser.expect('(');
 		while (!parser.eof() && !parser.has(')')) {
 			if (parser.has(',')) parser.expect(',');
@@ -813,7 +816,7 @@ window.addEventListener('load', startup);
 
 function set_ui_shown(to) {
 	ui_shown = to;
-	let ui_viz = to ? 'visible' : 'collapse';
+	const ui_viz = to ? 'visible' : 'collapse';
 	ui_div.style.visibility = ui_viz;
 	ui_resize.style.visibility = ui_viz;
 }
@@ -854,10 +857,10 @@ function color_hex_to_float(hex) {
 }
 
 function color_float_to_hex(color) {
-	let r = Math.round(color.r * 255);
-	let g = Math.round(color.g * 255);
-	let b = Math.round(color.b * 255);
-	let a = Math.round((color.a ?? 1) * 255);
+	const r = Math.round(color.r * 255);
+	const g = Math.round(color.g * 255);
+	const b = Math.round(color.b * 255);
+	const a = Math.round((color.a ?? 1) * 255);
 	function component(x) {
 		x = x.toString(16);
 		while (x.length < 2)
@@ -871,11 +874,11 @@ function color_float_to_hex(color) {
 
 function update_shader() {
 	clear_error();
-	let source = get_shader_source();
+	const source = get_shader_source();
 	if (source === null) {
 		return;
 	}
-	let fragment_code = `
+	const fragment_code = `
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -903,7 +906,7 @@ void main() {
 }
 
 function on_key_press(e) {
-	let code = e.keyCode;
+	const code = e.keyCode;
 	if (is_input(e.target)) {
 		return;
 	}
@@ -928,7 +931,7 @@ function float_glsl(f) {
 	if (isNaN(f)) return '(0.0 / 0.0)';
 	if (f === Infinity) return '1e+1000';
 	if (f === -Infinity) return '-1e+1000';
-	let s = f + '';
+	const s = f + '';
 	if (s.indexOf('.') !== -1 || s.indexOf('e') !== -1)
 		return s;
 	return s + '.0';
@@ -988,14 +991,14 @@ function get_widget_by_id(id) {
 }
 
 function get_widget_name(widget_div) {
-	let names = widget_div.getElementsByClassName('widget-name');
+	const names = widget_div.getElementsByClassName('widget-name');
 	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
 	return names[0].innerText;
 }
 
 
 function get_widget_names() {
-	let s = new Set();
+	const s = new Set();
 	for (const w of document.getElementsByClassName('widget-name')) {
 		s.add(w.innerText);
 	}
@@ -1029,7 +1032,7 @@ function update_input_element(input_element) {
 					// want to preserve whether or not there's an alpha channel
 					// (but input[type=color] doesn't support alpha)
 					const prev_value = input_element.innerText;
-					let color = color_hex_to_float(color_input.value);
+					const color = color_hex_to_float(color_input.value);
 					color.a = color_hex_to_float(prev_value).a;
 					const specify_alpha = prev_value.length === 5 || prev_value.length === 9;
 					let new_value = color_float_to_hex(color);
@@ -1041,7 +1044,7 @@ function update_input_element(input_element) {
 						new_value = new_value.slice(0, 7);
 					}
 					input_element.innerText = new_value;
-					if (auto_update)
+					if (auto_update_enabled())
 						update_shader();
 				});
 				container.appendChild(color_input);
@@ -1070,9 +1073,9 @@ window.addEventListener('mouseup', () => {
 });
 
 function add_widget(func) {
-	let info = widget_info.get(func);
+	const info = widget_info.get(func);
 	console.assert(info !== undefined, 'bad widget ID: ' + func);
-	let root = document.createElement('div');
+	const root = document.createElement('div');
 	root.dataset.func = func;
 	root.dataset.id = widget_id++;
 	root.classList.add('widget');
@@ -1098,7 +1101,7 @@ function add_widget(func) {
 	
 	{
 		// delete button
-		let delete_button = document.createElement('button');
+		const delete_button = document.createElement('button');
 		delete_button.ariaLabel = 'delete';
 		delete_button.classList.add('widget-delete');
 		delete_button.classList.add('widget-button');
@@ -1111,7 +1114,7 @@ function add_widget(func) {
 	
 	{
 		// move button
-		let move_button = document.createElement('button');
+		const move_button = document.createElement('button');
 		move_button.ariaLabel = 'move';
 		move_button.classList.add('widget-move');
 		move_button.classList.add('widget-button');
@@ -1123,20 +1126,20 @@ function add_widget(func) {
 	}
 	
 	{ // title
-		let title = document.createElement('div');
+		const title = document.createElement('div');
 		title.classList.add('widget-title');
 		if (info.description) {
 			title.title = info.description;
 		}
 		title.appendChild(document.createTextNode(info.name + ' '));
-		let name_input = document.createElement('div');
+		const name_input = document.createElement('div');
 		name_input.contentEditable = true;
 		name_input.spellcheck = false;
 		name_input.classList.add('widget-name');
 		name_input.addEventListener('input', () => update_shader());
 		
 		// generate unique name
-		let names = get_widget_names();
+		const names = get_widget_names();
 		let i;
 		for (i = 1; ; i++) {
 			if (!names.has(func + i)) {
@@ -1153,10 +1156,10 @@ function add_widget(func) {
 	for (const param of info.params.values()) {
 		if (param.control) {
 			// control
-			let container = document.createElement('div');
+			const container = document.createElement('div');
 			container.classList.add('control');
 			container.dataset.id = param.id;
-			let type = param.control;
+			const type = param.control;
 			let input;
 			if (type === 'checkbox') {
 				input = document.createElement('input');
@@ -1166,12 +1169,12 @@ function add_widget(func) {
 					input.checked = 'checked';
 				}
 			} else if (type.startsWith('select:')) {
-				let options = type.substring('select:'.length).split('|');
+				const options = type.substring('select:'.length).split('|');
 				
 				input = document.createElement('select');
 				input.classList.add('entry');
-				for (let opt of options) {
-					let option = document.createElement('option');
+				for (const opt of options) {
+					const option = document.createElement('option');
 					option.appendChild(document.createTextNode(opt));
 					option.value = opt;
 					input.appendChild(option);
@@ -1202,7 +1205,7 @@ function add_widget(func) {
 			
 			input.id = 'gen-control-' + (++html_id);
 			input.classList.add('control-input');
-			let label = document.createElement('label');
+			const label = document.createElement('label');
 			label.htmlFor = input.id;
 			label.appendChild(document.createTextNode(param.name));
 			if (param.description) {
@@ -1215,10 +1218,10 @@ function add_widget(func) {
 			root.appendChild(document.createTextNode(' '));
 		} else {
 			// input
-			let container = document.createElement('div');
+			const container = document.createElement('div');
 			container.classList.add('in');
 			container.dataset.id = param.id;
-			let input_element = document.createElement('div');
+			const input_element = document.createElement('div');
 			input_element.contentEditable = true;
 			input_element.spellcheck = false;
 			input_element.addEventListener('keydown', (e) => {
@@ -1231,7 +1234,7 @@ function add_widget(func) {
 			input_element.appendChild(document.createElement('br'));
 			input_element.type = 'text';
 			input_element.id = 'gen-input-' + (++html_id);
-			let label = document.createElement('label');
+			const label = document.createElement('label');
 			label.htmlFor = input_element.id;
 			if (param.description) {
 				container.title = param.description;
@@ -1249,7 +1252,7 @@ function add_widget(func) {
 			
 			input_element.addEventListener('input', () => {
 				update_input_element(input_element);
-				if (auto_update) {
+				if (auto_update_enabled()) {
 					update_shader();
 				}
 			});
@@ -1306,11 +1309,11 @@ ${this.code.join('')}
 		
 		if (input.indexOf(',') !== -1) {
 			// vector construction
-			let items = input.split(',');
+			const items = input.split(',');
 			console.assert(items.length >= 2, 'huhhhhh??');
-			let components = [];
-			for (let item of items) {
-				let input = this.compute_input(item);
+			const components = [];
+			for (const item of items) {
+				const input = this.compute_input(item);
 				if ('error' in input) {
 					return input;
 				}
@@ -1318,9 +1321,9 @@ ${this.code.join('')}
 			}
 			let component_count = 0;
 			let base_type = undefined;
-			for (let component of components) {
-				let type = component.type;
-				let c = type_component_count(type);
+			for (const component of components) {
+				const type = component.type;
+				const c = type_component_count(type);
 				if (c === 0) {
 					return {error: `cannot use type ${type} with ,`};
 				}
@@ -1332,19 +1335,19 @@ ${this.code.join('')}
 					return {error: 'bad combination of types for ,'};
 				}
 			}
-			let type = type_vec(base_type, component_count);
+			const type = type_vec(base_type, component_count);
 			if (type === null) {
 				// e.g. trying to combine 5 floats
 				return {error: 'bad combination of types for ,'};
 			}
-			let v = this.next_variable();
-			let component_values = components.map((c) => c.code);
+			const v = this.next_variable();
+			const component_values = components.map((c) => c.code);
 			this.add_code(`${type} ${v} = ${type}(${component_values.join()});\n`);
 			return {type: type, code: v};
 		}
 		
 		if (input[0] === '#') {
-			let color = color_hex_to_float(input);
+			const color = color_hex_to_float(input);
 			if (color === null) {
 				return {error: 'bad color: ' + input};
 			}
@@ -1353,8 +1356,8 @@ ${this.code.join('')}
 				{ code: `vec4(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
 		}
 		
-		let dot = input.lastIndexOf('.');
-		let field = dot === -1 ? 'out' : input.substring(dot + 1);
+		const dot = input.lastIndexOf('.');
+		const field = dot === -1 ? 'out' : input.substring(dot + 1);
 		
 		if (field.length === 0) {
 			return {error: 'inputs should not end in .'};
@@ -1362,15 +1365,15 @@ ${this.code.join('')}
 		
 		if (field.length >= 1 && field.length <= 4 && field.split('').every((c) => 'xyzw'.indexOf(c) !== -1)) {
 			// swizzle
-			let vector = this.compute_input(input.substring(0, dot));
+			const vector = this.compute_input(input.substring(0, dot));
 			if ('error' in vector) {
 				return {error: vector.error};
 			}
-			let base = type_base_type(vector.type);
-			let count = type_component_count(vector.type);
+			const base = type_base_type(vector.type);
+			const count = type_component_count(vector.type);
 			
-			for (let c of field) {
-				let i = 'xyzw'.indexOf(c);
+			for (const c of field) {
+				const i = 'xyzw'.indexOf(c);
 				if (i >= count) {
 					return {error: `type ${vector.type} has no field ${c}.`};
 				}
@@ -1395,7 +1398,7 @@ ${this.code.join('')}
 		if (field !== 'out') {
 			return {error: `no such field: ${field}`};
 		}
-		let widget = this.widgets.get(input);
+		const widget = this.widgets.get(input);
 		if (widget === undefined) {
 			return {error: `cannot find widget '${input}'`};
 		}
@@ -1404,7 +1407,7 @@ ${this.code.join('')}
 			return {error: 'circular dependency at ' + input};
 		}
 		this.computing_inputs.add(input);
-		let value = this.compute_widget_output(widget);
+		const value = this.compute_widget_output(widget);
 		if (value.error) {
 			if (!value.widget) {
 				value.widget = widget.id;
@@ -1443,7 +1446,7 @@ ${this.code.join('')}
 				continue;
 			let score = 0;
 			for (const [input_name, input_type] of definition.input_types) {
-				let got_type = input_types.get(input_name);
+				const got_type = input_types.get(input_name);
 				if (got_type === input_type) {
 					score += 1;
 				} else if (got_type === 'float') {
@@ -1459,7 +1462,7 @@ ${this.code.join('')}
 		}
 		
 		if (!best_definition) {
-			let s = [];
+			const s = [];
 			for (const [n, t] of input_types) {
 				s.push(`${n}:${t}`);
 			}
@@ -1493,9 +1496,9 @@ ${this.code.join('')}
 function parse_widgets() {
 	const widgets = new Map();
 	for (const widget_div of document.getElementsByClassName('widget')) {
-		let name = get_widget_name(widget_div);
-		let func = widget_div.dataset.func;
-		let id = parseInt(widget_div.dataset.id);
+		const name = get_widget_name(widget_div);
+		const func = widget_div.dataset.func;
+		const id = parseInt(widget_div.dataset.id);
 		if (!name) {
 			return {error: 'widget has no name. please give it one.', widget: id};
 		}
@@ -1511,7 +1514,7 @@ function parse_widgets() {
 		const inputs = new Map();
 		const controls = [];
 		for (const input of widget_div.getElementsByClassName('in')) {
-			let id = input.dataset.id;
+			const id = input.dataset.id;
 			inputs.set(id, input.getElementsByClassName('entry')[0].innerText);
 		}
 		for (const control of widget_div.getElementsByClassName('control')) {
@@ -1560,13 +1563,13 @@ function get_control_value(widget_id, control_id) {
 }
 
 function export_widgets() {
-	let widgets = parse_widgets();
+	const widgets = parse_widgets();
 	if (widgets.error) {
 		show_error(widgets);
 		return;
 	}
 	console.assert(widgets instanceof Map);
-	let data = [];
+	const data = [];
 	for (const [name, widget] of widgets) {
 		data.push(widget.func);
 		data.push(';');
@@ -1611,13 +1614,13 @@ function import_widgets(string) {
 			const widget = {name: null, func, inputs: new Map(), controls: new Map()};
 			parts.splice(0, 1);
 			for (const part of parts) {
-				let kv = part.split(':');
+				const kv = part.split(':');
 				if (kv.length !== 2) {
 					return {error: `bad key-value pair (kv count ${kv.length})`};
 				}
-				let type = kv[0][0];
-				let key = kv[0].substring(1);
-				let value = kv[1];
+				const type = kv[0][0];
+				const key = kv[0].substring(1);
+				const value = kv[1];
 				if (type === 'n') {
 					// name
 					widget.name = value;
@@ -1650,7 +1653,7 @@ function import_widgets(string) {
 	}
 	
 	function assign_value(container, value) {
-		let element = container.getElementsByClassName('entry')[0];
+		const element = container.getElementsByClassName('entry')[0];
 		if (!element) {
 			console.error('container',container,'has no input entry');
 		} else if (element.type === 'checkbox') {
@@ -1658,7 +1661,7 @@ function import_widgets(string) {
 		} else if (element.tagName === 'INPUT') {
 			element.value = value;
 		} else if (element.tagName === 'SELECT') {
-			let options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
+			const options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
 			if (value >= 0 && value < options.length) {
 				element.value = options[value];
 			} else if (options.indexOf(value) !== -1) {
@@ -1713,7 +1716,7 @@ function import_widgets_from_local_storage() {
 }
 
 function export_widgets_to_local_storage() {
-	let widget_str = export_widgets();
+	const widget_str = export_widgets();
 	code_input.value = widget_str;
 	localStorage.setItem(`${APP_ID}-widgets`, widget_str);
 }
@@ -1759,7 +1762,7 @@ function get_shader_source() {
 		return null;
 	}
 	
-	let code = state.get_code();
+	const code = state.get_code();
 	console.log(code);
 	export_widgets_to_local_storage();
 	return code;
@@ -1803,7 +1806,7 @@ function startup() {
 	// drag to resize ui
 	ui_resize.addEventListener('mousedown', (e) => {
 		resizing_ui = true;
-		let basis = ui_div.style.flexBasis;
+		const basis = ui_div.style.flexBasis;
 		console.assert(basis.endsWith('px'));
 		ui_resize_offset = basis.substring(0, basis.length - 2) - e.clientX;
 		e.preventDefault();
@@ -1901,8 +1904,8 @@ void main() {
 			const widgets = categories.get(cat);
 			widgets.sort((a, b) => widget_info.get(a).name.localeCompare(widget_info.get(b).name));
 			for (const id of widgets) {
-				let widget = widget_info.get(id);
-				let button = document.createElement('button');
+				const widget = widget_info.get(id);
+				const button = document.createElement('button');
 				button.classList.add('widget-choice');
 				if ('description' in widget) {
 					button.title = widget.description;
@@ -1953,10 +1956,7 @@ function frame(time) {
 	canvas.style.left = canvas_x + 'px';
 	canvas.style.top = canvas_y + 'px';
 	
-	let step = true;
-	if (step) {
-		perform_step();
-	}
+	perform_step();
 	
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.viewport(0, 0, viewport_width, viewport_height);
@@ -2029,9 +2029,9 @@ function perform_step() {
 }
 	
 function compile_program(name, shaders) {
-	let program = gl.createProgram();
+	const program = gl.createProgram();
 	for (const type in shaders) {
-		let source = shaders[type];
+		const source = shaders[type];
 		let gl_type;
 		if (type === 'vertex') {
 			gl_type = gl.VERTEX_SHADER;
@@ -2041,7 +2041,7 @@ function compile_program(name, shaders) {
 			show_error('unrecognized shader type: ' + type);
 			return null;
 		}
-		let shader = compile_shader(name + ' ' + type, gl_type, source);
+		const shader = compile_shader(name + ' ' + type, gl_type, source);
 		if (shader === null)
 			return null;
 		gl.attachShader(program, shader);
@@ -2063,7 +2063,7 @@ function set_up_framebuffer() {
 	set_up_rgba_texture(framebuffer_color_texture, width, height, null);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebuffer_color_texture, 0);
-	let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+	const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
 	if (status !== gl.FRAMEBUFFER_COMPLETE) {
 		show_error('Error: framebuffer incomplete (status ' + status + ')');
 		return;
