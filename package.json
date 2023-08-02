@@ -10,5 +10,8 @@
   "license": "WTFPL",
   "devDependencies": {
     "eslint": "^8.45.0"
+  },
+  "dependencies": {
+    "prettier": "^3.0.0"
   }
 }

@@ -26,7 +26,8 @@ let code_input;
 let error_element;
 let parsed_widgets;
 
-const width = 1920, height = 1920;
+const width = 1920,
+	height = 1920;
 
 const builtin_widgets = [
 	`
@@ -35,10 +36,15 @@ const builtin_widgets = [
 //! .description: outputs its input unaltered. useful for defining constants.
 //! x.name: input
 //! x.id: input
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} buffer(${type} x) {
 	return x;
-}`).join('\n'),
+}`,
+			)
+			.join('\n'),
 	`
 //! .name: Slider
 //! .category: basic
@@ -69,12 +75,17 @@ float slider(float x, float min_val, float max_val) {
 //! c.name: clamp mix
 //! c.control: checkbox
 //! c.description: clamp the mix input to the [0, 1] range
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 	if (c != 0) x = clamp(x, 0.0, 1.0);
 	return mix(a, b, x);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Last frame
 //! .category: basic
@@ -108,30 +119,45 @@ vec3 last_frame(vec2 pos, int wrap, int sample) {
 //! bw.name: b weight
 //! bw.default: 1
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 	return a * aw + b * bw;
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Multiply
 //! .category: math
 //! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} mul(${type} a, ${type} b) {
 	return a * b;
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Power
 //! .category: math
 //! .id: pow
 //! .description: take one number to the power of another
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} pow_(${type} a, ${type} b) {
 	return pow(a, b);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Modulo
 //! .category: math
@@ -139,11 +165,16 @@ ${type} pow_(${type} a, ${type} b) {
 //! .description: wrap a value at a certain limit
 //! a.name: a
 //! b.default: 1
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} mod_(${type} a, ${type} b) {
 	return mod(a, b);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Square
 //! .category: geometry
@@ -158,16 +189,28 @@ ${type} mod_(${type} a, ${type} b) {
 //! size.description: radius of the square
 //! size.default: 0.5
 
-` + [['float', 'a'], ['vec2', 'max(a.x, a.y)'], ['vec3', 'max(a.x, max(a.y, a.z))'], ['vec4', 'max(max(a.x, a.y), max(a.z, a.w))']].map((x) => {
-		const type = x[0];
-		const max = x[1];
-		return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
+` +
+		[
+			['float', 'a'],
+			['vec2', 'max(a.x, a.y)'],
+			['vec3', 'max(a.x, max(a.y, a.z))'],
+			['vec4', 'max(max(a.x, a.y), max(a.z, a.w))'],
+		]
+			.map((x) => {
+				const type = x[0];
+				const max = x[1];
+				return ['float', 'vec2', 'vec3', 'vec4']
+					.map(
+						(type2) => `
 ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	${type} a = abs(pos) / size;
 	return ${max} < 1.0 ? inside : outside;
 }
-`).join('\n');
-	}).join('\n'),
+`,
+					)
+					.join('\n');
+			})
+			.join('\n'),
 	`
 //! .name: Circle
 //! .category: geometry
@@ -181,14 +224,21 @@ ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 //! size.default: 0.5
 //! size.description: radius of the circle
 
-`+ ['float', 'vec2', 'vec3', 'vec4'].map((type) => {
-		return ['float', 'vec2', 'vec3', 'vec4'].map((type2) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map((type) => {
+				return ['float', 'vec2', 'vec3', 'vec4']
+					.map(
+						(type2) => `
 ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	pos /= size;
 	return dot(pos, pos) < 1.0 ? inside : outside;
 }
-`).join('\n');
-	}).join('\n'),
+`,
+					)
+					.join('\n');
+			})
+			.join('\n'),
 	`
 //! .name: Comparator
 //! .category: basic
@@ -205,11 +255,16 @@ ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 //! greater.name: if greater
 //! greater.default: 1
 //! greater.description: value to output if "Compare 1" ≥ "Compare 2"
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 	return cmp1 < cmp2 ? less : greater;
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Wave
 //! .category: curves
@@ -232,7 +287,10 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 //! nonneg.description: make the wave go from baseline to baseline+amp, rather than baseline-amp to baseline+amp
 //! nonneg.control: checkbox
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
 	${type} v = ${type}(0.0);
 	t = t / period - phase;
@@ -250,7 +308,9 @@ ${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phas
 	if (nonneg != 0) v = v * 0.5 + 0.5;
 	return amp * v + center;
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Rotate 2D
 //! .category: geometry
@@ -341,13 +401,18 @@ vec3 saturate(vec3 color, float amount) {
 //! brightness.description: how much to change brightness by (−1 to 1 range)
 //! contrast.description: how much to change contrast by (−1 to 1 range)
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 	brightness = clamp(brightness, -1.0, 1.0);
 	contrast = clamp(contrast, -1.0, 1.0);
 	return clamp((contrast + 1.0) / (1.0 - contrast) * (color - 0.5) + (brightness + 0.5), 0.0, 1.0);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Clamp
 //! .category: basic
@@ -360,11 +425,16 @@ ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 //! minimum.id: min
 //! maximum.name: max
 //! maximum.id: max
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 	return clamp(x, minimum, maximum);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Rotate 3D
 //! .id: rot3
@@ -404,11 +474,16 @@ vec3 rot3(vec3 v, vec3 axis, float angle) {
 //! b2.default: 1
 //! b2.description: positive endpoint of destination interval
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 	return (x - a1) / (b1 - a1) * (b2 - a2) + a2;
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Smoothstep
 //! .id: smoothstep
@@ -428,11 +503,16 @@ ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 //! out2.description: output value when t ≥ t₂
 //! out2.default: 1
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) {
 	return mix(out1, out2, smoothstep(t1, t2, t));
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Arctangent
 //! .id: arctan2
@@ -442,33 +522,48 @@ ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) 
 //! x.id: x
 //! x.default: 1
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} arctan2(${type} y, ${type} x) {
 	return atan(y, x);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Tangent
 //! .id: tan
 //! .category: math
 //! .description: The tangent function (radians)
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} tang(${type} x) {
 	return tan(x);
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Arcsine
 //! .id: arcsin
 //! .category: math
 //! .description: The arcsine function (radians) — input will be clamped to [−1, 1]
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} arcsin(${type} x) {
 	return asin(clamp(x, -1.0, 1.0));
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Sigmoid
 //! .id: sigmoid
@@ -479,11 +574,16 @@ ${type} arcsin(${type} x) {
 //! b.description: output value for very positive inputs
 //! sharpness.description: scale factor for input value — higher = quicker transition from a to b
 
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 	return mix(a, b, 1.0 / (1.0 + exp(-sharpness * x)));
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 	`
 //! .name: Staircase (floor)
 //! .id: floor
@@ -496,11 +596,16 @@ ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 //! steph.description: step height
 //! phase.description: proportion of a step to be added to input
 //! phase.default: 0
-` + ['float', 'vec2', 'vec3', 'vec4'].map((type) => `
+` +
+		['float', 'vec2', 'vec3', 'vec4']
+			.map(
+				(type) => `
 ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 	return floor(x / stepw + phase) * steph;
 }
-`).join('\n'),
+`,
+			)
+			.join('\n'),
 ];
 
 function auto_update_enabled() {
@@ -510,7 +615,12 @@ function auto_update_enabled() {
 function is_input(element) {
 	if (!element) return false;
 	for (let e = element; e; e = e.parentElement) {
-		if (e.tagName === 'INPUT' || e.tagName === 'BUTTON' || e.tagName === 'SELECT' || e.isContentEditable) {
+		if (
+			e.tagName === 'INPUT' ||
+			e.tagName === 'BUTTON' ||
+			e.tagName === 'SELECT' ||
+			e.isContentEditable
+		) {
 			return true;
 		}
 	}
@@ -524,35 +634,36 @@ class Parser {
 		this.i = 0;
 		this.error = null;
 	}
-	
+
 	set_error(e) {
-		if (!this.error)
-			this.error = {line: this.line_number, message: e};
+		if (!this.error) this.error = { line: this.line_number, message: e };
 	}
-	
+
 	eof() {
 		this.skip_space();
 		return this.i >= this.string.length;
 	}
-	
+
 	has(c) {
 		this.skip_space();
 		return this.string.substring(this.i, this.i + c.length) === c;
 	}
-	
+
 	skip_space() {
 		while (this.i < this.string.length && this.string[this.i].match(/\s/)) {
-			if (this.string[this.i] === '\n')
-				this.line_number += 1;
+			if (this.string[this.i] === '\n') this.line_number += 1;
 			this.i += 1;
 		}
 	}
-	
+
 	parse_type() {
 		this.skip_space();
 		const i = this.i;
 		for (const type of ['float', 'vec2', 'vec3', 'vec4', 'int']) {
-			if (this.string.substring(i, i + type.length) === type && this.string[i + type.length] === ' ') {
+			if (
+				this.string.substring(i, i + type.length) === type &&
+				this.string[i + type.length] === ' '
+			) {
 				this.i += type.length + 1;
 				return type;
 			}
@@ -561,7 +672,7 @@ class Parser {
 		if (end === -1) end = this.string.length;
 		this.set_error(`no such type: ${this.string.substring(i, end)}`);
 	}
-	
+
 	parse_ident() {
 		this.skip_space();
 		if (this.eof()) {
@@ -575,12 +686,15 @@ class Parser {
 		}
 		const start = this.i;
 		this.i += 1;
-		while (this.i < this.string.length && this.string[this.i].match(/[a-zA-Z0-9_]/)) {
+		while (
+			this.i < this.string.length &&
+			this.string[this.i].match(/[a-zA-Z0-9_]/)
+		) {
 			this.i += 1;
 		}
 		return this.string.substring(start, this.i);
 	}
-	
+
 	expect(c) {
 		this.skip_space();
 		const got = this.string.substring(this.i, this.i + c.length);
@@ -589,7 +703,7 @@ class Parser {
 		}
 		this.i += 1;
 	}
-	
+
 	advance() {
 		this.i += 1;
 	}
@@ -617,16 +731,16 @@ function parse_widget_definition(code) {
 	let error = undefined;
 	const params = new Map();
 	const param_regex = /^[a-zA-Z_][a-zA-Z0-9_]*/gu;
-	
+
 	lines.forEach((line, index) => {
 		if (error) return;
 		if (def_start !== undefined) return;
-		
+
 		line = line.trim();
 		if (line.startsWith('//! ')) {
 			const parts = line.substring('//! '.length).split(': ');
 			if (parts.length !== 2) {
-				error = `on line ${index+1}: line must contain ": " exactly once`;
+				error = `on line ${index + 1}: line must contain ": " exactly once`;
 				return;
 			}
 			const key = parts[0].trim();
@@ -640,38 +754,42 @@ function parse_widget_definition(code) {
 			} else if (key === '.category') {
 				category = value;
 			} else if (key.startsWith('.')) {
-				error = `on line ${index+1}: key ${key} not recognized`;
+				error = `on line ${index + 1}: key ${key} not recognized`;
 				return;
 			} else {
 				const key_parts = key.split('.');
 				if (key_parts.length !== 2) {
-					error = `on line ${index+1}: expected key to be of form parameter.property, got ${key}`;
+					error = `on line ${
+						index + 1
+					}: expected key to be of form parameter.property, got ${key}`;
 					return;
 				}
 				const param_name = key_parts[0];
 				const property = key_parts[1];
 				if (!param_name.match(param_regex)) {
-					error = `on line ${index+1}: bad parameter name: ${param_name}`;
+					error = `on line ${index + 1}: bad parameter name: ${param_name}`;
 				}
 				if (!params.has(param_name)) {
 					params.set(param_name, {});
 				}
 				const param = params.get(param_name);
 				switch (property) {
-				case 'id':
-				case 'name':
-				case 'description':
-				case 'default':
-				case 'control':
-					param[property] = value;
-					break;
-				default:
-					error = `on line ${index+1}: parameter property '${property}' not recognized`;
-					return;
+					case 'id':
+					case 'name':
+					case 'description':
+					case 'default':
+					case 'control':
+						param[property] = value;
+						break;
+					default:
+						error = `on line ${
+							index + 1
+						}: parameter property '${property}' not recognized`;
+						return;
 				}
 			}
 		} else if (line.startsWith('//!')) {
-			error = `on line ${index+1}: missing space after //!`;
+			error = `on line ${index + 1}: missing space after //!`;
 		} else if (line.startsWith('//')) {
 			// comment
 		} else {
@@ -680,11 +798,11 @@ function parse_widget_definition(code) {
 		}
 	});
 	if (error) {
-		return {error};
+		return { error };
 	}
 	lines = lines.slice(def_start);
 	if (lines.some((x) => x.startsWith('//!'))) {
-		return {error: '//! appears after first function definition'};
+		return { error: '//! appears after first function definition' };
 	}
 	lines = lines.map((x) => {
 		x = x.trim();
@@ -693,7 +811,7 @@ function parse_widget_definition(code) {
 		}
 		return x;
 	});
-	
+
 	const parser = new Parser(lines.join('\n'), def_start + 1);
 	const definitions = [];
 	let function_name;
@@ -703,27 +821,29 @@ function parse_widget_definition(code) {
 		const fname = parser.parse_ident();
 		if (!function_name) function_name = fname;
 		if (!parser.error && fname !== function_name) {
-			return {error: `function defined as both '${function_name}' and '${fname}'`};
+			return {
+				error: `function defined as both '${function_name}' and '${fname}'`,
+			};
 		}
 		if (!id) id = function_name;
-		
+
 		const definition_params = [];
 		parser.expect('(');
 		while (!parser.eof() && !parser.has(')')) {
 			if (parser.has(',')) parser.expect(',');
 			const type = parser.parse_type();
 			const name = parser.parse_ident();
-			definition_params.push({type, name});
-			
+			definition_params.push({ type, name });
+
 			if (!params.has(name)) {
 				if (!definitions.size) {
 					params.set(name, {});
 				} else if (!parser.error) {
-					return {error: `parameter ${name} does not exist`};
+					return { error: `parameter ${name} does not exist` };
 				}
 			}
 		}
-		
+
 		// we have all parameters now — fill out missing fields
 		if (!definitions.size) {
 			for (const param_name of params.keys()) {
@@ -733,7 +853,7 @@ function parse_widget_definition(code) {
 				if (!param.description) param.description = '';
 			}
 		}
-		
+
 		const input_types = new Map();
 		const param_order = new Map();
 		definition_params.forEach((p, index) => {
@@ -744,12 +864,16 @@ function parse_widget_definition(code) {
 					parser.set_error(`bad control type: '${param.control}'`);
 				}
 				if (p.type !== expected_type) {
-					parser.set_error(`parameter ${p.name} should have type ${expected_type} since it's a ${param.control}, but it has type ${p.type}`);
+					parser.set_error(
+						`parameter ${p.name} should have type ${expected_type} since it's a ${param.control}, but it has type ${p.type}`,
+					);
 				}
 			}
-			
+
 			if (!param.control && p.type === 'int') {
-				parser.set_error(`parameter ${p.name} has type int, so you should set a control type for it, e.g. //! ${p.name}.control: checkbox`);
+				parser.set_error(
+					`parameter ${p.name} has type int, so you should set a control type for it, e.g. //! ${p.name}.control: checkbox`,
+				);
 			}
 			if (!param.control) {
 				input_types.set(param.id, p.type);
@@ -758,38 +882,39 @@ function parse_widget_definition(code) {
 		});
 		for (const param of params.values()) {
 			if (!input_types.has(param.id) && !param.control) {
-				parser.set_error(`parameter ${param.id} not specified in definition of ${function_name}`);
+				parser.set_error(
+					`parameter ${param.id} not specified in definition of ${function_name}`,
+				);
 			}
 		}
-		
-		
+
 		parser.expect(')');
 		parser.expect('{');
 		let brace_depth = 1;
 		while (!parser.eof() && brace_depth > 0) {
-			if (parser.has('{'))
-				brace_depth += 1;
-			if (parser.has('}'))
-				brace_depth -= 1;
+			if (parser.has('{')) brace_depth += 1;
+			if (parser.has('}')) brace_depth -= 1;
 			parser.advance();
 		}
 		const definition_end = parser.i;
-		const definition = parser.string.substring(definition_start, definition_end);
+		const definition = parser.string.substring(
+			definition_start,
+			definition_end,
+		);
 		definitions.push({
 			input_types,
 			param_order,
 			return_type,
-			code: definition
+			code: definition,
 		});
 	}
 	if (parser.error) {
 		const error = parser.error;
-		return {error: `on line ${error.line}: ${error.message}`};
+		return { error: `on line ${error.line}: ${error.message}` };
 	}
-	if (!name)
-		name = id;
+	if (!name) name = id;
 	if (!category) {
-		return {error: `no category set for ${id}`};
+		return { error: `no category set for ${id}` };
 	}
 	return {
 		id,
@@ -798,7 +923,7 @@ function parse_widget_definition(code) {
 		name,
 		params,
 		description,
-		definitions
+		definitions,
 	};
 }
 
@@ -827,7 +952,7 @@ function color_hex_to_float(hex) {
 	let b;
 	let a;
 	hex = hex.trim();
-	
+
 	if (hex.length === 7 || hex.length === 9) {
 		// #rrggbb or #rrggbbaa
 		r = parseInt(hex.substring(1, 3), 16) / 255;
@@ -845,7 +970,7 @@ function color_hex_to_float(hex) {
 	if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
 		return null;
 	}
-	
+
 	const color = {
 		r: r,
 		g: g,
@@ -863,8 +988,7 @@ function color_float_to_hex(color) {
 	const a = Math.round((color.a ?? 1) * 255);
 	function component(x) {
 		x = x.toString(16);
-		while (x.length < 2)
-			x = '0' + x;
+		while (x.length < 2) x = '0' + x;
 		return x;
 	}
 	let ca = component(a);
@@ -902,7 +1026,10 @@ void main() {
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `;
-	program_main = compile_program('main', {vertex: vertex_code, fragment: fragment_code});
+	program_main = compile_program('main', {
+		vertex: vertex_code,
+		fragment: fragment_code,
+	});
 }
 
 function on_key_press(e) {
@@ -911,19 +1038,19 @@ function on_key_press(e) {
 		return;
 	}
 	console.log('key press', code);
-	
+
 	switch (code) {
-	case 32: // space
-		perform_step();
-		break;
-	case 9: // tab
-		set_ui_shown(!ui_shown);
-		e.preventDefault();
-		break;
-	case 13: // return
-		update_shader();
-		e.preventDefault();
-		break;
+		case 32: // space
+			perform_step();
+			break;
+		case 9: // tab
+			set_ui_shown(!ui_shown);
+			e.preventDefault();
+			break;
+		case 13: // return
+			update_shader();
+			e.preventDefault();
+			break;
 	}
 }
 
@@ -932,47 +1059,54 @@ function float_glsl(f) {
 	if (f === Infinity) return '1e+1000';
 	if (f === -Infinity) return '-1e+1000';
 	const s = f + '';
-	if (s.indexOf('.') !== -1 || s.indexOf('e') !== -1)
-		return s;
+	if (s.indexOf('.') !== -1 || s.indexOf('e') !== -1) return s;
 	return s + '.0';
 }
 
 function type_component_count(type) {
 	switch (type) {
-	case 'float': return 1;
-	case 'vec2': return 2;
-	case 'vec3': return 3;
-	case 'vec4': return 4;
-	default:
-		return 0;
+		case 'float':
+			return 1;
+		case 'vec2':
+			return 2;
+		case 'vec3':
+			return 3;
+		case 'vec4':
+			return 4;
+		default:
+			return 0;
 	}
 }
 
 function type_base_type(type) {
 	switch (type) {
-	case 'float':
-	case 'vec2':
-	case 'vec3':
-	case 'vec4':
-		return 'float';
-	default:
-		return null;
+		case 'float':
+		case 'vec2':
+		case 'vec3':
+		case 'vec4':
+			return 'float';
+		default:
+			return null;
 	}
 }
 
 function type_vec(base_type, component_count) {
 	switch (base_type) {
-	case 'float':
-		switch (component_count) {
-		case 1: return 'float';
-		case 2: return 'vec2';
-		case 3: return 'vec3';
-		case 4: return 'vec4';
+		case 'float':
+			switch (component_count) {
+				case 1:
+					return 'float';
+				case 2:
+					return 'vec2';
+				case 3:
+					return 'vec3';
+				case 4:
+					return 'vec4';
+				default:
+					return null;
+			}
 		default:
 			return null;
-		}
-	default:
-		return null;
 	}
 }
 
@@ -985,17 +1119,18 @@ function get_widget_by_name(name) {
 	return null;
 }
 
-
 function get_widget_by_id(id) {
 	return document.querySelector(`.widget[data-id="${id}"]`);
 }
 
 function get_widget_name(widget_div) {
 	const names = widget_div.getElementsByClassName('widget-name');
-	console.assert(names.length === 1, 'there should be exactly one widget-name input per widget');
+	console.assert(
+		names.length === 1,
+		'there should be exactly one widget-name input per widget',
+	);
 	return names[0].innerText;
 }
-
 
 function get_widget_names() {
 	const s = new Set();
@@ -1004,7 +1139,6 @@ function get_widget_names() {
 	}
 	return s;
 }
-
 
 function set_display_output_and_update_shader(to) {
 	for (const widget of document.querySelectorAll('.widget[data-display="1"]')) {
@@ -1018,7 +1152,7 @@ function set_display_output_and_update_shader(to) {
 
 function update_input_element(input_element) {
 	const container = input_element.parentElement;
-	
+
 	{
 		// add color input if the text is a color
 		let color_input = container.querySelector('input[type="color"]');
@@ -1034,18 +1168,17 @@ function update_input_element(input_element) {
 					const prev_value = input_element.innerText;
 					const color = color_hex_to_float(color_input.value);
 					color.a = color_hex_to_float(prev_value).a;
-					const specify_alpha = prev_value.length === 5 || prev_value.length === 9;
+					const specify_alpha =
+						prev_value.length === 5 || prev_value.length === 9;
 					let new_value = color_float_to_hex(color);
 					console.assert(new_value.length === 7 || new_value.length === 9);
 					if (specify_alpha) {
-						if (new_value.length === 7)
-							new_value += 'ff';
+						if (new_value.length === 7) new_value += 'ff';
 					} else {
 						new_value = new_value.slice(0, 7);
 					}
 					input_element.innerText = new_value;
-					if (auto_update_enabled())
-						update_shader();
+					if (auto_update_enabled()) update_shader();
 				});
 				container.appendChild(color_input);
 			}
@@ -1081,24 +1214,24 @@ function add_widget(func) {
 	root.classList.add('widget');
 	root.addEventListener('mouseover', () => {
 		if (!dragging_widget) return;
-		
+
 		switch (root.compareDocumentPosition(dragging_widget)) {
-		case Node.DOCUMENT_POSITION_DISCONNECTED:
-		case Node.DOCUMENT_POSITION_CONTAINS:
-		case Node.DOCUMENT_POSITION_CONTAINED_BY:
-			console.error('unexpected compareDocumentPosition return value');
-			break;
-		case Node.DOCUMENT_POSITION_PRECEDING:
-			// dragging up
-			dragging_widget.before(root);
-			break;
-		case Node.DOCUMENT_POSITION_FOLLOWING:
-			// dragging down
-			dragging_widget.after(root);
-			break;
+			case Node.DOCUMENT_POSITION_DISCONNECTED:
+			case Node.DOCUMENT_POSITION_CONTAINS:
+			case Node.DOCUMENT_POSITION_CONTAINED_BY:
+				console.error('unexpected compareDocumentPosition return value');
+				break;
+			case Node.DOCUMENT_POSITION_PRECEDING:
+				// dragging up
+				dragging_widget.before(root);
+				break;
+			case Node.DOCUMENT_POSITION_FOLLOWING:
+				// dragging down
+				dragging_widget.after(root);
+				break;
 		}
 	});
-	
+
 	{
 		// delete button
 		const delete_button = document.createElement('button');
@@ -1111,7 +1244,7 @@ function add_widget(func) {
 		});
 		root.appendChild(delete_button);
 	}
-	
+
 	{
 		// move button
 		const move_button = document.createElement('button');
@@ -1124,8 +1257,9 @@ function add_widget(func) {
 		});
 		root.appendChild(move_button);
 	}
-	
-	{ // title
+
+	{
+		// title
 		const title = document.createElement('div');
 		title.classList.add('widget-title');
 		if (info.description) {
@@ -1137,7 +1271,7 @@ function add_widget(func) {
 		name_input.spellcheck = false;
 		name_input.classList.add('widget-name');
 		name_input.addEventListener('input', () => update_shader());
-		
+
 		// generate unique name
 		const names = get_widget_names();
 		let i;
@@ -1147,11 +1281,11 @@ function add_widget(func) {
 			}
 		}
 		name_input.innerText = func + i;
-		
+
 		title.appendChild(name_input);
 		root.appendChild(title);
 	}
-	
+
 	// parameters
 	for (const param of info.params.values()) {
 		if (param.control) {
@@ -1170,7 +1304,7 @@ function add_widget(func) {
 				}
 			} else if (type.startsWith('select:')) {
 				const options = type.substring('select:'.length).split('|');
-				
+
 				input = document.createElement('select');
 				input.classList.add('entry');
 				for (const opt of options) {
@@ -1179,7 +1313,7 @@ function add_widget(func) {
 					option.value = opt;
 					input.appendChild(option);
 				}
-				
+
 				if (param['default']) {
 					input.value = param['default'];
 				}
@@ -1202,8 +1336,8 @@ function add_widget(func) {
 			} else {
 				console.error('bad control type');
 			}
-			
-			input.id = 'gen-control-' + (++html_id);
+
+			input.id = 'gen-control-' + ++html_id;
 			input.classList.add('control-input');
 			const label = document.createElement('label');
 			label.htmlFor = input.id;
@@ -1233,7 +1367,7 @@ function add_widget(func) {
 			input_element.classList.add('entry');
 			input_element.appendChild(document.createElement('br'));
 			input_element.type = 'text';
-			input_element.id = 'gen-input-' + (++html_id);
+			input_element.id = 'gen-input-' + ++html_id;
 			const label = document.createElement('label');
 			label.htmlFor = input_element.id;
 			if (param.description) {
@@ -1248,8 +1382,7 @@ function add_widget(func) {
 			container.appendChild(input_element);
 			root.appendChild(container);
 			root.appendChild(document.createTextNode(' '));
-			
-			
+
 			input_element.addEventListener('input', () => {
 				update_input_element(input_element);
 				if (auto_update_enabled()) {
@@ -1259,14 +1392,13 @@ function add_widget(func) {
 			update_input_element(input_element);
 		}
 	}
-	
+
 	root.addEventListener('click', (e) => {
-		if (is_input(e.target))
-			return;
+		if (is_input(e.target)) return;
 		set_display_output_and_update_shader(root);
 		e.preventDefault();
 	});
-	
+
 	widgets_container.appendChild(root);
 	return root;
 }
@@ -1279,34 +1411,33 @@ class GLSLGenerationState {
 		this.computing_inputs = new Set();
 		this.variable = 0;
 	}
-	
+
 	next_variable() {
 		this.variable += 1;
 		return 'v' + this.variable;
 	}
-	
+
 	add_code(code) {
 		this.code.push(code);
 	}
-	
+
 	get_code() {
 		return `
 ${Array.from(this.declarations).join('')}
 vec3 ff_get_color() {
 ${this.code.join('')}
 }`;
-
 	}
-	
+
 	compute_input(input) {
 		input = input.trim();
 		if (input.length === 0) {
-			return {error: 'empty input'};
+			return { error: 'empty input' };
 		}
 		if (!isNaN(input)) {
 			return { code: float_glsl(parseFloat(input)), type: 'float' };
 		}
-		
+
 		if (input.indexOf(',') !== -1) {
 			// vector construction
 			const items = input.split(',');
@@ -1325,86 +1456,103 @@ ${this.code.join('')}
 				const type = component.type;
 				const c = type_component_count(type);
 				if (c === 0) {
-					return {error: `cannot use type ${type} with ,`};
+					return { error: `cannot use type ${type} with ,` };
 				}
 				component_count += c;
 				if (base_type === undefined) {
 					base_type = type_base_type(type);
 				}
 				if (base_type !== type_base_type(type)) {
-					return {error: 'bad combination of types for ,'};
+					return { error: 'bad combination of types for ,' };
 				}
 			}
 			const type = type_vec(base_type, component_count);
 			if (type === null) {
 				// e.g. trying to combine 5 floats
-				return {error: 'bad combination of types for ,'};
+				return { error: 'bad combination of types for ,' };
 			}
 			const v = this.next_variable();
 			const component_values = components.map((c) => c.code);
 			this.add_code(`${type} ${v} = ${type}(${component_values.join()});\n`);
-			return {type: type, code: v};
+			return { type: type, code: v };
 		}
-		
+
 		if (input[0] === '#') {
 			const color = color_hex_to_float(input);
 			if (color === null) {
-				return {error: 'bad color: ' + input};
+				return { error: 'bad color: ' + input };
 			}
-			return input.length === 4 || input.length === 7 ?
-				{ code: `vec3(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)})`, type: 'vec3' } :
-				{ code: `vec4(${float_glsl(color.r)},${float_glsl(color.g)},${float_glsl(color.b)},${float_glsl(color.a)})`, type: 'vec4' };
+			return input.length === 4 || input.length === 7
+				? {
+						code: `vec3(${float_glsl(color.r)},${float_glsl(
+							color.g,
+						)},${float_glsl(color.b)})`,
+						type: 'vec3',
+				  }
+				: {
+						code: `vec4(${float_glsl(color.r)},${float_glsl(
+							color.g,
+						)},${float_glsl(color.b)},${float_glsl(color.a)})`,
+						type: 'vec4',
+				  };
 		}
-		
+
 		const dot = input.lastIndexOf('.');
 		const field = dot === -1 ? 'out' : input.substring(dot + 1);
-		
+
 		if (field.length === 0) {
-			return {error: 'inputs should not end in .'};
+			return { error: 'inputs should not end in .' };
 		}
-		
-		if (field.length >= 1 && field.length <= 4 && field.split('').every((c) => 'xyzw'.indexOf(c) !== -1)) {
+
+		if (
+			field.length >= 1 &&
+			field.length <= 4 &&
+			field.split('').every((c) => 'xyzw'.indexOf(c) !== -1)
+		) {
 			// swizzle
 			const vector = this.compute_input(input.substring(0, dot));
 			if ('error' in vector) {
-				return {error: vector.error};
+				return { error: vector.error };
 			}
 			const base = type_base_type(vector.type);
 			const count = type_component_count(vector.type);
-			
+
 			for (const c of field) {
 				const i = 'xyzw'.indexOf(c);
 				if (i >= count) {
-					return {error: `type ${vector.type} has no field ${c}.`};
+					return { error: `type ${vector.type} has no field ${c}.` };
 				}
 			}
-			
-			return {code: `(${vector.code}).${field}`, type: type_vec(base, field.length)};
+
+			return {
+				code: `(${vector.code}).${field}`,
+				type: type_vec(base, field.length),
+			};
 		}
-		
+
 		if (dot === 0) {
 			switch (input) {
-			case '.pos':
-				return {code: 'ff_pos', type: 'vec2'};
-			case '.pos01':
-				return {code: '(0.5+0.5*ff_pos)', type: 'vec2'};
-			case '.time':
-				return {code: 'ff_time', type: 'float'};
-			default:
-				return {error: `no such builtin: ${input}`};
+				case '.pos':
+					return { code: 'ff_pos', type: 'vec2' };
+				case '.pos01':
+					return { code: '(0.5+0.5*ff_pos)', type: 'vec2' };
+				case '.time':
+					return { code: 'ff_time', type: 'float' };
+				default:
+					return { error: `no such builtin: ${input}` };
 			}
 		}
-		
+
 		if (field !== 'out') {
-			return {error: `no such field: ${field}`};
+			return { error: `no such field: ${field}` };
 		}
 		const widget = this.widgets.get(input);
 		if (widget === undefined) {
-			return {error: `cannot find widget '${input}'`};
+			return { error: `cannot find widget '${input}'` };
 		}
-		
+
 		if (this.computing_inputs.has(input)) {
-			return {error: 'circular dependency at ' + input};
+			return { error: 'circular dependency at ' + input };
 		}
 		this.computing_inputs.add(input);
 		const value = this.compute_widget_output(widget);
@@ -1417,10 +1565,10 @@ ${this.code.join('')}
 		this.computing_inputs.delete(input);
 		return value;
 	}
-	
+
 	compute_widget_output(widget) {
 		if (widget.output) return widget.output;
-	
+
 		const info = widget_info.get(widget.func);
 		const args = new Map();
 		const input_types = new Map();
@@ -1436,14 +1584,12 @@ ${this.code.join('')}
 		for (const control of widget.controls) {
 			args.set(control.id, control.uniform);
 		}
-		
+
 		let best_definition = undefined;
 		let best_score = -Infinity;
 		for (const definition of info.definitions) {
-			if (definition.input_types.length !== input_types.length)
-				continue;
-			if (definition.param_order.length !== args.length)
-				continue;
+			if (definition.input_types.length !== input_types.length) continue;
+			if (definition.param_order.length !== args.length) continue;
 			let score = 0;
 			for (const [input_name, input_type] of definition.input_types) {
 				const got_type = input_types.get(input_name);
@@ -1460,15 +1606,15 @@ ${this.code.join('')}
 				best_score = score;
 			}
 		}
-		
+
 		if (!best_definition) {
 			const s = [];
 			for (const [n, t] of input_types) {
 				s.push(`${n}:${t}`);
 			}
-			return {error: `bad types for ${info.name}: ${s.join(', ')}`};
+			return { error: `bad types for ${info.name}: ${s.join(', ')}` };
 		}
-		
+
 		const output_var = this.next_variable();
 		const definition = best_definition;
 		const args_code = new Array(args.length);
@@ -1484,7 +1630,11 @@ ${this.code.join('')}
 		}
 		const type = definition.return_type;
 		this.declarations.add(definition.code);
-		this.add_code(`${type} ${output_var} = ${info.function_name}(${args_code.join(',')});\n`);
+		this.add_code(
+			`${type} ${output_var} = ${info.function_name}(${args_code.join(
+				',',
+			)});\n`,
+		);
 		widget.output = {
 			code: output_var,
 			type,
@@ -1500,17 +1650,20 @@ function parse_widgets() {
 		const func = widget_div.dataset.func;
 		const id = parseInt(widget_div.dataset.id);
 		if (!name) {
-			return {error: 'widget has no name. please give it one.', widget: id};
+			return { error: 'widget has no name. please give it one.', widget: id };
 		}
 		for (const c of name) {
 			if ('.,;|/\\:(){}[]+-<>\'"`~?!#%^&*'.indexOf(c) !== -1) {
-				return {error: `widget name cannot contain the character ${c}`, widget: id};
+				return {
+					error: `widget name cannot contain the character ${c}`,
+					widget: id,
+				};
 			}
 		}
 		if (widgets.has(name)) {
-			return {error: `duplicate widget name: ${name}`, widget: id};
+			return { error: `duplicate widget name: ${name}`, widget: id };
 		}
-		
+
 		const inputs = new Map();
 		const controls = [];
 		for (const input of widget_div.getElementsByClassName('in')) {
@@ -1548,14 +1701,14 @@ function get_control_value(widget_id, control_id) {
 	} else if (input.tagName === 'INPUT') {
 		return {
 			type: 'float',
-			value: parseFloat(input.value)
+			value: parseFloat(input.value),
 		};
 	} else if (input.tagName === 'SELECT') {
 		return {
 			type: 'int',
 			value: Array.from(input.getElementsByTagName('option'))
 				.map((o) => o.value)
-				.indexOf(input.value)
+				.indexOf(input.value),
 		};
 	} else {
 		console.error(`unrecognized control tag: ${input.tagName}`);
@@ -1594,7 +1747,9 @@ function export_widgets() {
 		data.push(';;');
 	}
 	data.push('_out=');
-	data.push(get_widget_name(document.querySelector('.widget[data-display="1"]')));
+	data.push(
+		get_widget_name(document.querySelector('.widget[data-display="1"]')),
+	);
 	return data.join('');
 }
 
@@ -1608,15 +1763,20 @@ function import_widgets(string) {
 				output = widget_str.substring('_out='.length);
 				continue;
 			}
-			
+
 			const parts = widget_str.split(';');
 			const func = parts[0];
-			const widget = {name: null, func, inputs: new Map(), controls: new Map()};
+			const widget = {
+				name: null,
+				func,
+				inputs: new Map(),
+				controls: new Map(),
+			};
 			parts.splice(0, 1);
 			for (const part of parts) {
 				const kv = part.split(':');
 				if (kv.length !== 2) {
-					return {error: `bad key-value pair (kv count ${kv.length})`};
+					return { error: `bad key-value pair (kv count ${kv.length})` };
 				}
 				const type = kv[0][0];
 				const key = kv[0].substring(1);
@@ -1631,12 +1791,12 @@ function import_widgets(string) {
 					// control
 					widget.controls.set(key, value);
 				} else {
-					return {error: `bad widget part type: '${type}'`};
+					return { error: `bad widget part type: '${type}'` };
 				}
 			}
-			
+
 			if (widget.name === null) {
-				return {error: 'widget has no name'};
+				return { error: 'widget has no name' };
 			}
 			widgets.push(widget);
 		}
@@ -1647,27 +1807,29 @@ function import_widgets(string) {
 				func: 'buffer',
 				inputs: new Map([['input', '#acabff']]),
 				controls: new Map(),
-			}
+			},
 		];
 		output = 'output';
 	}
-	
+
 	function assign_value(container, value) {
 		const element = container.getElementsByClassName('entry')[0];
 		if (!element) {
-			console.error('container',container,'has no input entry');
+			console.error('container', container, 'has no input entry');
 		} else if (element.type === 'checkbox') {
 			element.checked = value === 'true' || value === '1' ? 'checked' : '';
 		} else if (element.tagName === 'INPUT') {
 			element.value = value;
 		} else if (element.tagName === 'SELECT') {
-			const options = Array.from(element.getElementsByTagName('option')).map((o) => o.value);
+			const options = Array.from(element.getElementsByTagName('option')).map(
+				(o) => o.value,
+			);
 			if (value >= 0 && value < options.length) {
 				element.value = options[value];
 			} else if (options.indexOf(value) !== -1) {
 				element.value = value;
 			} else {
-				return {error: `bad import string (unrecognized value ${value})`};
+				return { error: `bad import string (unrecognized value ${value})` };
 			}
 		} else if (element.tagName === 'DIV') {
 			element.innerText = value;
@@ -1680,31 +1842,35 @@ function import_widgets(string) {
 	for (const widget of widgets) {
 		const name = widget.name;
 		if (!widget_info.has(widget.func)) {
-			return {error: `bad import string (widget type '${widget.func}' does not exist)`};
+			return {
+				error: `bad import string (widget type '${widget.func}' does not exist)`,
+			};
 		}
 		const element = add_widget(widget.func);
 		element.getElementsByClassName('widget-name')[0].innerText = name;
 
 		for (const [input, value] of widget.inputs) {
 			const container = Array.from(element.getElementsByClassName('in')).find(
-				(e) => e.dataset.id === input
+				(e) => e.dataset.id === input,
 			);
 			if (!container) {
-				return {error: `bad import string (input ${input} does not exist)`};
+				return { error: `bad import string (input ${input} does not exist)` };
 			}
 			assign_value(container, value);
 		}
 		for (const [control, value] of widget.controls) {
-			const container = Array.from(element.getElementsByClassName('control')).find(
-				(e) => e.dataset.id === control
-			);
+			const container = Array.from(
+				element.getElementsByClassName('control'),
+			).find((e) => e.dataset.id === control);
 			if (!container) {
-				return {error: `bad import string (control ${control} does not exist)`};
+				return {
+					error: `bad import string (control ${control} does not exist)`,
+				};
 			}
 			assign_value(container, value);
 		}
 	}
-	
+
 	set_display_output_and_update_shader(get_widget_by_name(output));
 }
 
@@ -1743,25 +1909,25 @@ function get_shader_source() {
 		show_error(output);
 		return null;
 	}
-	
+
 	switch (output.type) {
-	case 'float':
-		state.add_code(`return vec3(${output.code});\n`);
-		break;
-	case 'vec2':
-		state.add_code(`return vec3(${output.code}, 0.0);\n`);
-		break;
-	case 'vec3':
-		state.add_code(`return ${output.code};\n`);
-		break;
-	case 'vec4':
-		state.add_code(`return ${output.code}.xyz;\n`);
-		break;
-	default:
-		show_error(`bad type for output: ${output.type}`);
-		return null;
+		case 'float':
+			state.add_code(`return vec3(${output.code});\n`);
+			break;
+		case 'vec2':
+			state.add_code(`return vec3(${output.code}, 0.0);\n`);
+			break;
+		case 'vec3':
+			state.add_code(`return ${output.code};\n`);
+			break;
+		case 'vec4':
+			state.add_code(`return ${output.code}.xyz;\n`);
+			break;
+		default:
+			show_error(`bad type for output: ${output.type}`);
+			return null;
 	}
-	
+
 	const code = state.get_code();
 	console.log(code);
 	export_widgets_to_local_storage();
@@ -1776,8 +1942,14 @@ function update_widget_choices() {
 		const shown = name.toLowerCase().indexOf(search_term) !== -1;
 		choice.style.display = shown ? 'block' : 'none';
 	}
-	for (const category of widget_choices.getElementsByClassName('widget-category')) {
-		if (Array.from(category.getElementsByClassName('widget-choice')).some((x) => x.style.display === 'block')) {
+	for (const category of widget_choices.getElementsByClassName(
+		'widget-category',
+	)) {
+		if (
+			Array.from(category.getElementsByClassName('widget-choice')).some(
+				(x) => x.style.display === 'block',
+			)
+		) {
 			category.style.display = 'block';
 			category.open = search_term !== '';
 		} else {
@@ -1785,7 +1957,6 @@ function update_widget_choices() {
 		}
 	}
 }
-
 
 let resizing_ui = false;
 let ui_resize_offset = 0;
@@ -1800,9 +1971,9 @@ function startup() {
 	widgets_container = document.getElementById('widgets-container');
 	code_input = document.getElementById('code');
 	error_element = document.getElementById('error');
-	
+
 	ui_div.style.flexBasis = ui_div.offsetWidth + 'px'; // convert to px
-	
+
 	// drag to resize ui
 	ui_resize.addEventListener('mousedown', (e) => {
 		resizing_ui = true;
@@ -1817,18 +1988,18 @@ function startup() {
 	window.addEventListener('mousemove', (e) => {
 		if (resizing_ui) {
 			if (e.buttons & 1) {
-				ui_div.style.flexBasis = (e.clientX + ui_resize_offset) + 'px';
+				ui_div.style.flexBasis = e.clientX + ui_resize_offset + 'px';
 			} else {
 				resizing_ui = false;
 			}
 			e.preventDefault();
 		}
 	});
-	
+
 	document.getElementById('code-form').addEventListener('submit', () => {
 		import_widgets(code_input.value);
 	});
-	
+
 	gl = canvas.getContext('webgl');
 	if (gl === null) {
 		// support for very-old-but-not-ancient browsers
@@ -1838,8 +2009,7 @@ function startup() {
 			return;
 		}
 	}
-	
-	
+
 	program_post = compile_program('post', {
 		vertex: `
 attribute vec2 v_pos;
@@ -1863,24 +2033,30 @@ void main() {
 	if (program_post === null) {
 		return;
 	}
-	
+
 	vertex_buffer_rect = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_rect);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-		-1.0, -1.0, 1.0, -1.0, 1.0, 1.0,
-		-1.0, -1.0, 1.0, 1.0, -1.0, 1.0
-	]), gl.STATIC_DRAW);
-	
+	gl.bufferData(
+		gl.ARRAY_BUFFER,
+		new Float32Array([
+			-1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
+		]),
+		gl.STATIC_DRAW,
+	);
+
 	vertex_buffer_main = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-		-1.0, -1.0, 1.0, -1.0, 1.0, 1.0,
-		-1.0, -1.0, 1.0, 1.0, -1.0, 1.0
-	]), gl.STATIC_DRAW);
-	
+	gl.bufferData(
+		gl.ARRAY_BUFFER,
+		new Float32Array([
+			-1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
+		]),
+		gl.STATIC_DRAW,
+	);
+
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
-	
+
 	{
 		// add widget buttons
 		const categories = new Map();
@@ -1892,7 +2068,7 @@ void main() {
 		}
 		const category_names = Array.from(categories.keys());
 		category_names.sort();
-		
+
 		for (const cat of category_names) {
 			const category_element = document.createElement('details');
 			category_element.classList.add('widget-category');
@@ -1900,9 +2076,11 @@ void main() {
 			category_title.appendChild(document.createTextNode(cat));
 			category_element.appendChild(category_title);
 			widget_choices.appendChild(category_element);
-			
+
 			const widgets = categories.get(cat);
-			widgets.sort((a, b) => widget_info.get(a).name.localeCompare(widget_info.get(b).name));
+			widgets.sort((a, b) =>
+				widget_info.get(a).name.localeCompare(widget_info.get(b).name),
+			);
 			for (const id of widgets) {
 				const widget = widget_info.get(id);
 				const button = document.createElement('button');
@@ -1919,26 +2097,26 @@ void main() {
 			}
 		}
 	}
-	
+
 	set_up_framebuffer();
 	update_widget_choices();
 	widget_search.addEventListener('input', () => {
 		update_widget_choices();
 	});
 	import_widgets_from_local_storage();
-	
+
 	frame(0.0);
 	window.addEventListener('keydown', on_key_press);
-	
 }
 
 function frame(time) {
 	current_time = time * 1e-3;
-	
+
 	const container_width = canvas_container.offsetWidth;
 	const container_height = canvas_container.offsetHeight;
 	const aspect_ratio = width / height;
-	let canvas_x = 0, canvas_y = 0;
+	let canvas_x = 0,
+		canvas_y = 0;
 	if (container_width / aspect_ratio < container_height) {
 		// landscape mode
 		canvas_y = Math.floor((container_height - viewport_height) * 0.5);
@@ -1950,19 +2128,19 @@ function frame(time) {
 		viewport_width = Math.floor(container_height * aspect_ratio);
 		viewport_height = container_height;
 	}
-	
+
 	canvas.width = viewport_width;
 	canvas.height = viewport_height;
 	canvas.style.left = canvas_x + 'px';
 	canvas.style.top = canvas_y + 'px';
-	
+
 	perform_step();
-	
+
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.viewport(0, 0, viewport_width, viewport_height);
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT);
-	
+
 	gl.useProgram(program_post);
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_rect);
 	gl.activeTexture(gl.TEXTURE0);
@@ -1972,7 +2150,7 @@ function frame(time) {
 	gl.enableVertexAttribArray(v_pos);
 	gl.vertexAttribPointer(v_pos, 2, gl.FLOAT, false, 0, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
-	
+
 	if (!requestAnimationFrame) {
 		show_error('your browser doesnt support requestAnimationFrame.\noh well.');
 		return;
@@ -1985,49 +2163,53 @@ function perform_step() {
 		// not properly loaded yet
 		return;
 	}
-	
+
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 	gl.viewport(0, 0, width, height);
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT);
-	
-	
+
 	gl.useProgram(program_main);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.uniform1i(gl.getUniformLocation(program_main, 'ff_texture'), 0);
-	gl.uniform1f(gl.getUniformLocation(program_main, 'ff_time'), current_time % 3600);
-	gl.uniform2f(gl.getUniformLocation(program_main, 'ff_texture_size'), width, height);
-	
-	
+	gl.uniform1f(
+		gl.getUniformLocation(program_main, 'ff_time'),
+		current_time % 3600,
+	);
+	gl.uniform2f(
+		gl.getUniformLocation(program_main, 'ff_texture_size'),
+		width,
+		height,
+	);
+
 	if (parsed_widgets) {
 		for (const widget of parsed_widgets.values()) {
 			for (const control of widget.controls) {
 				const loc = gl.getUniformLocation(program_main, control.uniform);
-				const {type, value} = get_control_value(widget.id, control.id);
+				const { type, value } = get_control_value(widget.id, control.id);
 				switch (type) {
-				case 'int':
-					gl.uniform1i(loc, value);
-					break;
-				case 'float':
-					gl.uniform1f(loc, value);
-					break;
+					case 'int':
+						gl.uniform1i(loc, value);
+						break;
+					case 'float':
+						gl.uniform1f(loc, value);
+						break;
 				}
 			}
 		}
 	}
-	
-	
+
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	const v_pos = gl.getAttribLocation(program_main, 'v_pos');
 	gl.enableVertexAttribArray(v_pos);
 	gl.vertexAttribPointer(v_pos, 2, gl.FLOAT, false, 8, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
-	
+
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, width, height, 0);
 }
-	
+
 function compile_program(name, shaders) {
 	const program = gl.createProgram();
 	for (const type in shaders) {
@@ -2042,14 +2224,15 @@ function compile_program(name, shaders) {
 			return null;
 		}
 		const shader = compile_shader(name + ' ' + type, gl_type, source);
-		if (shader === null)
-			return null;
+		if (shader === null) return null;
 		gl.attachShader(program, shader);
 	}
-	
+
 	gl.linkProgram(program);
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		show_error('Error linking shader program:\n' + gl.getProgramInfoLog(program));
+		show_error(
+			'Error linking shader program:\n' + gl.getProgramInfoLog(program),
+		);
 		return null;
 	}
 	return program;
@@ -2062,7 +2245,13 @@ function set_up_framebuffer() {
 	set_up_rgba_texture(sampler_texture, width, height, sampler_pixels);
 	set_up_rgba_texture(framebuffer_color_texture, width, height, null);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, framebuffer_color_texture, 0);
+	gl.framebufferTexture2D(
+		gl.FRAMEBUFFER,
+		gl.COLOR_ATTACHMENT0,
+		gl.TEXTURE_2D,
+		framebuffer_color_texture,
+		0,
+	);
 	const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
 	if (status !== gl.FRAMEBUFFER_COMPLETE) {
 		show_error('Error: framebuffer incomplete (status ' + status + ')');
@@ -2072,8 +2261,17 @@ function set_up_framebuffer() {
 
 function set_up_rgba_texture(texture, width, height, pixels) {
 	gl.bindTexture(gl.TEXTURE_2D, texture);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0,
-		gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+	gl.texImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		width,
+		height,
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		pixels,
+	);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -2084,10 +2282,11 @@ function compile_shader(name, type, source) {
 	const shader = gl.createShader(type);
 	gl.shaderSource(shader, source);
 	gl.compileShader(shader);
-	
+
 	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-		show_error('Error compiling shader ' + name + ':\n' +
-			gl.getShaderInfoLog(shader));
+		show_error(
+			'Error compiling shader ' + name + ':\n' + gl.getShaderInfoLog(shader),
+		);
 		return null;
 	}
 	return shader;
