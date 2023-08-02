@@ -28,6 +28,10 @@ let parsed_widgets;
 
 const width = 1920,
 	height = 1920;
+const GLSL_FLOAT_TYPES = ['float', 'vec2', 'vec3', 'vec4'];
+const GLSL_FLOAT_TYPE_PAIRS = GLSL_FLOAT_TYPES.flatMap((x) =>
+	GLSL_FLOAT_TYPES.map((y) => [x, y]),
+);
 
 const builtin_widgets = [
 	`
@@ -37,14 +41,12 @@ const builtin_widgets = [
 //! x.name: input
 //! x.id: input
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} buffer(${type} x) {
 	return x;
 }`,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Slider
 //! .category: basic
@@ -76,16 +78,14 @@ float slider(float x, float min_val, float max_val) {
 //! c.control: checkbox
 //! c.description: clamp the mix input to the [0, 1] range
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 	if (c != 0) x = clamp(x, 0.0, 1.0);
 	return mix(a, b, x);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Last frame
 //! .category: basic
@@ -120,44 +120,38 @@ vec3 last_frame(vec2 pos, int wrap, int sample) {
 //! bw.default: 1
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 	return a * aw + b * bw;
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Multiply
 //! .category: math
 //! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} mul(${type} a, ${type} b) {
 	return a * b;
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Power
 //! .category: math
 //! .id: pow
 //! .description: take one number to the power of another
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} pow_(${type} a, ${type} b) {
 	return pow(a, b);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Modulo
 //! .category: math
@@ -166,15 +160,13 @@ ${type} pow_(${type} a, ${type} b) {
 //! a.name: a
 //! b.default: 1
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} mod_(${type} a, ${type} b) {
 	return mod(a, b);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Square
 //! .category: geometry
@@ -225,20 +217,14 @@ ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 //! size.description: radius of the circle
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map((type) => {
-				return ['float', 'vec2', 'vec3', 'vec4']
-					.map(
-						(type2) => `
+		GLSL_FLOAT_TYPE_PAIRS.map(
+			([type, type2]) => `
 ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	pos /= size;
 	return dot(pos, pos) < 1.0 ? inside : outside;
 }
 `,
-					)
-					.join('\n');
-			})
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Comparator
 //! .category: basic
@@ -256,15 +242,13 @@ ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 //! greater.default: 1
 //! greater.description: value to output if "Compare 1" ≥ "Compare 2"
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 	return cmp1 < cmp2 ? less : greater;
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Wave
 //! .category: curves
@@ -288,9 +272,8 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 //! nonneg.control: checkbox
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phase, ${type} center, int nonneg) {
 	${type} v = ${type}(0.0);
 	t = t / period - phase;
@@ -309,8 +292,7 @@ ${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phas
 	return amp * v + center;
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Rotate 2D
 //! .category: geometry
@@ -402,17 +384,15 @@ vec3 saturate(vec3 color, float amount) {
 //! contrast.description: how much to change contrast by (−1 to 1 range)
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 	brightness = clamp(brightness, -1.0, 1.0);
 	contrast = clamp(contrast, -1.0, 1.0);
 	return clamp((contrast + 1.0) / (1.0 - contrast) * (color - 0.5) + (brightness + 0.5), 0.0, 1.0);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Clamp
 //! .category: basic
@@ -426,15 +406,13 @@ ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 //! maximum.name: max
 //! maximum.id: max
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 	return clamp(x, minimum, maximum);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Rotate 3D
 //! .id: rot3
@@ -475,15 +453,13 @@ vec3 rot3(vec3 v, vec3 axis, float angle) {
 //! b2.description: positive endpoint of destination interval
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 	return (x - a1) / (b1 - a1) * (b2 - a2) + a2;
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Smoothstep
 //! .id: smoothstep
@@ -504,15 +480,13 @@ ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 //! out2.default: 1
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) {
 	return mix(out1, out2, smoothstep(t1, t2, t));
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Arctangent
 //! .id: arctan2
@@ -523,15 +497,13 @@ ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) 
 //! x.default: 1
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} arctan2(${type} y, ${type} x) {
 	return atan(y, x);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Tangent
 //! .id: tan
@@ -539,15 +511,13 @@ ${type} arctan2(${type} y, ${type} x) {
 //! .description: The tangent function (radians)
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} tang(${type} x) {
 	return tan(x);
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Arcsine
 //! .id: arcsin
@@ -555,15 +525,13 @@ ${type} tang(${type} x) {
 //! .description: The arcsine function (radians) — input will be clamped to [−1, 1]
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} arcsin(${type} x) {
 	return asin(clamp(x, -1.0, 1.0));
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Sigmoid
 //! .id: sigmoid
@@ -575,15 +543,13 @@ ${type} arcsin(${type} x) {
 //! sharpness.description: scale factor for input value — higher = quicker transition from a to b
 
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 	return mix(a, b, 1.0 / (1.0 + exp(-sharpness * x)));
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 	`
 //! .name: Staircase (floor)
 //! .id: floor
@@ -597,15 +563,13 @@ ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 //! phase.description: proportion of a step to be added to input
 //! phase.default: 0
 ` +
-		['float', 'vec2', 'vec3', 'vec4']
-			.map(
-				(type) => `
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
 ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 	return floor(x / stepw + phase) * steph;
 }
 `,
-			)
-			.join('\n'),
+		).join('\n'),
 ];
 
 function auto_update_enabled() {
@@ -1265,7 +1229,17 @@ function add_widget(func) {
 		if (info.description) {
 			title.title = info.description;
 		}
-		title.appendChild(document.createTextNode(info.name + ' '));
+		const type = document.createElement('span');
+		type.classList.add('widget-type');
+		type.appendChild(document.createTextNode(info.name));
+		type.addEventListener('click', (e) => {
+			set_display_output_and_update_shader(root);
+			e.preventDefault();
+		});
+		
+		title.appendChild(type);
+		title.appendChild(document.createTextNode(' '));
+		
 		const name_input = document.createElement('div');
 		name_input.contentEditable = true;
 		name_input.spellcheck = false;
@@ -1392,12 +1366,6 @@ function add_widget(func) {
 			update_input_element(input_element);
 		}
 	}
-
-	root.addEventListener('click', (e) => {
-		if (is_input(e.target)) return;
-		set_display_output_and_update_shader(root);
-		e.preventDefault();
-	});
 
 	widgets_container.appendChild(root);
 	return root;
