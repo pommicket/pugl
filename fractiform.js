@@ -1,9 +1,6 @@
 'use strict';
 
-/*
-TODO:
-- make uniforms for each control so they can be updated without recompiling
-*/
+const APP_ID = 'fractiform';
 
 let gl;
 let program_main = null;
@@ -28,6 +25,7 @@ let widgets_container;
 let code_input;
 let error_element;
 let auto_update = true;
+let parsed_widgets;
 
 let width = 1920, height = 1920;
 
@@ -1190,18 +1188,17 @@ function add_widget(func) {
 				input.max = 1;
 				input.step = 0.001;
 				input.value = 0;
+				const update_title = () => {
+					input.title = '' + input.value;
+				};
+				input.addEventListener('mouseover', update_title);
+				input.addEventListener('input', update_title);
 				if (param['default']) {
 					input.value = param['default'];
 				}
 			} else {
 				console.error('bad control type');
 			}
-			
-			input.addEventListener(input.type === 'range' ? 'change' : 'input', () => {
-				if (auto_update) {
-					update_shader();
-				}
-			});
 			
 			input.id = 'gen-control-' + (++html_id);
 			input.classList.add('control-input');
@@ -1274,7 +1271,7 @@ function add_widget(func) {
 class GLSLGenerationState {
 	constructor(widgets) {
 		this.widgets = widgets;
-		this.functions = new Set();
+		this.declarations = new Set();
 		this.code = [];
 		this.computing_inputs = new Set();
 		this.variable = 0;
@@ -1291,7 +1288,7 @@ class GLSLGenerationState {
 	
 	get_code() {
 		return `
-${Array.from(this.functions).join('')}
+${Array.from(this.declarations).join('')}
 vec3 ff_get_color() {
 ${this.code.join('')}
 }`;
@@ -1419,76 +1416,76 @@ ${this.code.join('')}
 	}
 	
 	compute_widget_output(widget) {
-		if (!widget.output) {
-			const info = widget_info.get(widget.func);
-			const args = new Map();
-			const input_types = new Map();
-			for (let [input, value] of widget.inputs) {
-				value = this.compute_input(value);
-				if (value.error) {
-					widget.output = value;
-					return value;
-				}
-				args.set(input, value.code);
-				input_types.set(input, value.type);
+		if (widget.output) return widget.output;
+	
+		const info = widget_info.get(widget.func);
+		const args = new Map();
+		const input_types = new Map();
+		for (let [input, value] of widget.inputs) {
+			value = this.compute_input(value);
+			if (value.error) {
+				widget.output = value;
+				return value;
 			}
-			for (let [control, value] of widget.controls) {
-				args.set(control, value);
-			}
-			
-			let best_definition = undefined;
-			let best_score = -Infinity;
-			for (const definition of info.definitions) {
-				if (definition.input_types.length !== input_types.length)
-					continue;
-				if (definition.param_order.length !== args.length)
-					continue;
-				let score = 0;
-				for (const [input_name, input_type] of definition.input_types) {
-					let got_type = input_types.get(input_name);
-					if (got_type === input_type) {
-						score += 1;
-					} else if (got_type === 'float') {
-						// implicit conversion
-					} else {
-						score = -Infinity;
-					}
-				}
-				if (score > best_score) {
-					best_definition = definition;
-					best_score = score;
-				}
-			}
-			
-			if (!best_definition) {
-				let s = [];
-				for (const [n, t] of input_types) {
-					s.push(`${n}:${t}`);
-				}
-				return {error: `bad types for ${info.name}: ${s.join(', ')}`};
-			}
-			
-			const output_var = this.next_variable();
-			const definition = best_definition;
-			const args_code = new Array(args.length);
-			for (let [arg_name, arg_code] of args) {
-				if (definition.input_types.has(arg_name)) {
-					const expected_type = definition.input_types.get(arg_name);
-					const got_type = input_types.get(arg_name);
-					if (got_type !== expected_type) {
-						arg_code = `${expected_type}(${arg_code})`;
-					}
-				}
-				args_code[definition.param_order.get(arg_name)] = arg_code;
-			}
-			const type = definition.return_type;
-			this.functions.add(definition.code);
-			this.add_code(`${type} ${output_var} = ${info.function_name}(${args_code.join(',')});\n`);
-			widget.output = {
-				code: output_var,
-				type,
-			};
+			args.set(input, value.code);
+			input_types.set(input, value.type);
 		}
+		for (const control of widget.controls) {
+			args.set(control.id, control.uniform);
+		}
+		
+		let best_definition = undefined;
+		let best_score = -Infinity;
+		for (const definition of info.definitions) {
+			if (definition.input_types.length !== input_types.length)
+				continue;
+			if (definition.param_order.length !== args.length)
+				continue;
+			let score = 0;
+			for (const [input_name, input_type] of definition.input_types) {
+				let got_type = input_types.get(input_name);
+				if (got_type === input_type) {
+					score += 1;
+				} else if (got_type === 'float') {
+					// implicit conversion
+				} else {
+					score = -Infinity;
+				}
+			}
+			if (score > best_score) {
+				best_definition = definition;
+				best_score = score;
+			}
+		}
+		
+		if (!best_definition) {
+			let s = [];
+			for (const [n, t] of input_types) {
+				s.push(`${n}:${t}`);
+			}
+			return {error: `bad types for ${info.name}: ${s.join(', ')}`};
+		}
+		
+		const output_var = this.next_variable();
+		const definition = best_definition;
+		const args_code = new Array(args.length);
+		for (let [arg_name, arg_code] of args) {
+			if (definition.input_types.has(arg_name)) {
+				const expected_type = definition.input_types.get(arg_name);
+				const got_type = input_types.get(arg_name);
+				if (got_type !== expected_type) {
+					arg_code = `${expected_type}(${arg_code})`;
+				}
+			}
+			args_code[definition.param_order.get(arg_name)] = arg_code;
+		}
+		const type = definition.return_type;
+		this.declarations.add(definition.code);
+		this.add_code(`${type} ${output_var} = ${info.function_name}(${args_code.join(',')});\n`);
+		widget.output = {
+			code: output_var,
+			type,
+		};
 		return widget.output;
 	}
 }
@@ -1512,27 +1509,18 @@ function parse_widgets() {
 		}
 		
 		const inputs = new Map();
-		const controls = new Map();
+		const controls = [];
 		for (const input of widget_div.getElementsByClassName('in')) {
 			let id = input.dataset.id;
 			inputs.set(id, input.getElementsByClassName('entry')[0].innerText);
 		}
 		for (const control of widget_div.getElementsByClassName('control')) {
-			let id = control.dataset.id;
-			let input = control.getElementsByClassName('control-input')[0];
-			let value;
-			if (input.tagName === 'INPUT' && input.type === 'checkbox') {
-				value = input.checked ? 1 : 0;
-			} else if (input.tagName === 'INPUT') {
-				value = float_glsl(parseFloat(input.value));
-			} else if (input.tagName === 'SELECT') {
-				value = Array.from(input.getElementsByTagName('option'))
-					.map((o) => o.value)
-					.indexOf(input.value);
-			} else {
-				console.error(`unrecognized control tag: ${input.tagName}`);
-			}
-			controls.set(id, value);
+			const control_id = control.dataset.id;
+			controls.push({
+				id: control_id,
+				uniform: `ff_control${id}_${control_id}`,
+				type: get_control_value(id, control_id).type,
+			});
 		}
 		widgets.set(name, {
 			func,
@@ -1541,7 +1529,34 @@ function parse_widgets() {
 			controls,
 		});
 	}
+	parsed_widgets = widgets;
 	return widgets;
+}
+
+function get_control_value(widget_id, control_id) {
+	const widget = get_widget_by_id(widget_id);
+	const control = widget.querySelector(`.control[data-id="${control_id}"]`);
+	const input = control.querySelector('.control-input');
+	if (input.tagName === 'INPUT' && input.type === 'checkbox') {
+		return {
+			type: 'int',
+			value: input.checked ? 1 : 0,
+		};
+	} else if (input.tagName === 'INPUT') {
+		return {
+			type: 'float',
+			value: parseFloat(input.value)
+		};
+	} else if (input.tagName === 'SELECT') {
+		return {
+			type: 'int',
+			value: Array.from(input.getElementsByTagName('option'))
+				.map((o) => o.value)
+				.indexOf(input.value)
+		};
+	} else {
+		console.error(`unrecognized control tag: ${input.tagName}`);
+	}
 }
 
 function export_widgets() {
@@ -1565,11 +1580,11 @@ function export_widgets() {
 			data.push(value);
 			data.push(';');
 		}
-		for (const [control, value] of widget.controls) {
+		for (const control of widget.controls) {
 			data.push('c');
-			data.push(control);
+			data.push(control.id);
 			data.push(':');
-			data.push(value);
+			data.push(get_control_value(widget.id, control.id));
 			data.push(';');
 		}
 		data.pop(); // remove terminal separator
@@ -1691,7 +1706,7 @@ function import_widgets(string) {
 }
 
 function import_widgets_from_local_storage() {
-	const result = import_widgets(localStorage.getItem('widgets'));
+	const result = import_widgets(localStorage.getItem(`${APP_ID}-widgets`));
 	if (result && result.error) {
 		show_error(result);
 	}
@@ -1700,7 +1715,7 @@ function import_widgets_from_local_storage() {
 function export_widgets_to_local_storage() {
 	let widget_str = export_widgets();
 	code_input.value = widget_str;
-	localStorage.setItem('widgets', widget_str);
+	localStorage.setItem(`${APP_ID}-widgets`, widget_str);
 }
 
 function get_shader_source() {
@@ -1715,6 +1730,11 @@ function get_shader_source() {
 		return null;
 	}
 	const state = new GLSLGenerationState(widgets);
+	for (const widget of widgets.values()) {
+		for (const control of widget.controls) {
+			state.declarations.add(`uniform ${control.type} ${control.uniform};\n`);
+		}
+	}
 	const output = state.compute_input(get_widget_name(display_output));
 	if (output.error) {
 		show_error(output);
@@ -1971,12 +1991,32 @@ function perform_step() {
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT);
 	
+	
 	gl.useProgram(program_main);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
 	gl.uniform1i(gl.getUniformLocation(program_main, 'ff_texture'), 0);
 	gl.uniform1f(gl.getUniformLocation(program_main, 'ff_time'), current_time % 3600);
 	gl.uniform2f(gl.getUniformLocation(program_main, 'ff_texture_size'), width, height);
+	
+	
+	if (parsed_widgets) {
+		for (const widget of parsed_widgets.values()) {
+			for (const control of widget.controls) {
+				const loc = gl.getUniformLocation(program_main, control.uniform);
+				const {type, value} = get_control_value(widget.id, control.id);
+				switch (type) {
+				case 'int':
+					gl.uniform1i(loc, value);
+					break;
+				case 'float':
+					gl.uniform1f(loc, value);
+					break;
+				}
+			}
+		}
+	}
+	
 	
 	gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer_main);
 	const v_pos = gl.getAttribLocation(program_main, 'v_pos');
