@@ -570,6 +570,66 @@ ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 }
 `,
 		).join('\n'),
+	`
+//! .name: Sinusoidal
+//! .category: noise
+//! .description: Noise generated from sine waves
+
+float noise_sin(float x) {
+	float k = 0.5;
+	float phase = 2.45;
+	
+	float v = 0.0;
+	for (int i = 0; i < 8; i++) {
+		float s = sin(x + phase);
+		v += k * s * s;
+		x *= 2.0;
+		k *= 0.5;
+		phase *= 1.7;
+		phase = mod(phase, 6.28);
+	}
+	return v;
+}
+
+float noise_sin(vec2 x) {
+	float v = 0.0;
+	float k =0.5;
+	vec2 phase = vec2(1.0, 3.6);
+	float theta = 2.7;
+	for (int i = 0; i < 8; i++) {
+		v += k * abs(sin(x.x + phase.x) * sin(x.y + phase.y));
+		phase *= 3.8;
+		phase = mod(phase, 6.28);
+		x *= 2.0;
+		x = mat2(cos(theta), sin(theta), -sin(theta), cos(theta)) * x;
+		k *= 0.5;
+		theta *= 2.4;
+		theta = mod(theta, 6.28);
+	}
+	return v;
+}
+
+float noise_sin(vec3 x) {
+	float v = 0.0;
+	float k = 0.5;
+	vec3 phase = vec3(1.0, 3.6, 2.2);
+	float theta = 2.7;
+	float phi = 4.6;
+	for (int i = 0; i < 8; i++) {
+		v += k * abs(sin(x.x + phase.x) * sin(x.y + phase.y) * sin(x.z + phase.z));
+		phase *= 4.7;
+		phase = mod(phase, 6.28);
+		x *= 2.0;
+		float ct = cos(theta), st = sin(theta);
+		float cp = cos(phi), sp = sin(phi);
+		x = mat3(st*cp, ct*cp, -sp, st*sp, ct*sp, cp, ct, -st, 0.0) * x;
+		k *= 0.5;
+		theta *= 2.4;
+		theta = mod(theta, 6.28);
+	}
+	return v;
+}
+`
 ];
 
 function auto_update_enabled() {
@@ -1708,7 +1768,7 @@ function export_widgets() {
 			data.push('c');
 			data.push(control.id);
 			data.push(':');
-			data.push(get_control_value(widget.id, control.id));
+			data.push(get_control_value(widget.id, control.id).value);
 			data.push(';');
 		}
 		data.pop(); // remove terminal separator
