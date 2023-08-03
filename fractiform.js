@@ -1,5 +1,18 @@
 'use strict';
 
+/*
+TODO:
+- select widget name when it's created
+- pause
+- settings:
+  - enable/disable auto-update
+  - resolution
+- widgets:
+  - white noise
+  - worley noise
+  - perlin noise
+*/
+
 const APP_ID = 'fractiform';
 
 let gl;
@@ -107,7 +120,7 @@ vec3 last_frame(vec2 pos, int wrap, int sample) {
 		pos = mod(pos, 1.0);
 	if (sample == 1)
 		pos = floor(0.5 + pos * ff_texture_size) * (1.0 / ff_texture_size);
-	return texture2D(ff_texture, pos).xyz;
+	return texture(ff_texture, pos).xyz;
 }
 `,
 	`
@@ -250,7 +263,7 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 `,
 		).join('\n'),
 	`
-//! .name: Wave
+//! .name: Sine wave
 //! .category: curves
 //! .description: sine, triangle, square, sawtooth waves
 //! .id: sin
@@ -571,65 +584,76 @@ ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 `,
 		).join('\n'),
 	`
-//! .name: Sinusoidal
+//! .name: Sin noise
 //! .category: noise
 //! .description: Noise generated from sine waves
+//! x.id: x
+//! falloff.description: values closer to 0 will emphasize lower-frequency noise, values towards 1 will emphasize higher-frequency noise
+//! falloff.default: 0.5
+//! freqstep.description: ratio between successive frequencies of noise
+//! freqstep.default: 2
+//! levels.description: number of frequencies of noises to add together
+//! levels.control: int:1|30
+//! levels.default: 8
 
-float noise_sin(float x) {
-	float k = 0.5;
+float noise_sin(float x, float falloff, float freqstep, int levels) {
+	float k = 1.0;
 	float phase = 2.45;
 	
+	falloff = clamp(falloff, 0.0, 1.0);
+	
 	float v = 0.0;
-	for (int i = 0; i < 8; i++) {
+	int i = 0;
+	for (i = 0; i < levels; i++) {
 		float s = sin(x + phase);
 		v += k * s * s;
-		x *= 2.0;
-		k *= 0.5;
+		x *= freqstep;
+		k *= falloff;
 		phase *= 1.7;
 		phase = mod(phase, 6.28);
 	}
-	return v;
+	return v * (1.0 - falloff);
 }
 
-float noise_sin(vec2 x) {
+float noise_sin(vec2 x, float falloff, float freqstep, int levels) {
 	float v = 0.0;
-	float k =0.5;
+	float k = 1.0;
 	vec2 phase = vec2(1.0, 3.6);
 	float theta = 2.7;
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < levels; i++) {
 		v += k * abs(sin(x.x + phase.x) * sin(x.y + phase.y));
 		phase *= 3.8;
 		phase = mod(phase, 6.28);
-		x *= 2.0;
+		x *= freqstep;
 		x = mat2(cos(theta), sin(theta), -sin(theta), cos(theta)) * x;
-		k *= 0.5;
+		k *= falloff;
 		theta *= 2.4;
 		theta = mod(theta, 6.28);
 	}
-	return v;
+	return v * (1.0 - falloff);
 }
 
-float noise_sin(vec3 x) {
+float noise_sin(vec3 x, float falloff, float freqstep, int levels) {
 	float v = 0.0;
-	float k = 0.5;
+	float k = 1.0;
 	vec3 phase = vec3(1.0, 3.6, 2.2);
 	float theta = 2.7;
 	float phi = 4.6;
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < levels; i++) {
 		v += k * abs(sin(x.x + phase.x) * sin(x.y + phase.y) * sin(x.z + phase.z));
 		phase *= 4.7;
 		phase = mod(phase, 6.28);
-		x *= 2.0;
+		x *= freqstep;
 		float ct = cos(theta), st = sin(theta);
 		float cp = cos(phi), sp = sin(phi);
 		x = mat3(st*cp, ct*cp, -sp, st*sp, ct*sp, cp, ct, -st, 0.0) * x;
-		k *= 0.5;
+		k *= falloff;
 		theta *= 2.4;
 		theta = mod(theta, 6.28);
 	}
-	return v;
+	return v * (1.0 - falloff);
 }
-`
+`,
 ];
 
 function auto_update_enabled() {
@@ -740,6 +764,8 @@ function control_type(control) {
 		return 'int';
 	} else if (control === 'slider') {
 		return 'float';
+	} else if (control.startsWith('int:')) {
+		return 'int';
 	}
 	return null;
 }
@@ -1026,7 +1052,8 @@ function update_shader() {
 	if (source === null) {
 		return;
 	}
-	const fragment_code = `
+	const fragment_code = `#version 300 es
+
 #ifdef GL_ES
 precision highp float;
 #endif
@@ -1034,17 +1061,18 @@ precision highp float;
 uniform sampler2D ff_texture;
 uniform float ff_time;
 uniform vec2 ff_texture_size;
-varying vec2 ff_pos;
+in vec2 ff_pos;
+out vec4 ff_out_color;
 
 ${source}
 
 void main() {
-	gl_FragColor = vec4(ff_get_color(), 1.0);
+	ff_out_color = vec4(ff_get_color(), 1.0);
 }
 `;
-	const vertex_code = `
-attribute vec2 v_pos;
-varying vec2 ff_pos;
+	const vertex_code = `#version 300 es
+in vec2 v_pos;
+out vec2 ff_pos;
 void main() {
 	ff_pos = v_pos;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
@@ -1296,10 +1324,10 @@ function add_widget(func) {
 			set_display_output_and_update_shader(root);
 			e.preventDefault();
 		});
-		
+
 		title.appendChild(type);
 		title.appendChild(document.createTextNode(' '));
-		
+
 		const name_input = document.createElement('div');
 		name_input.contentEditable = true;
 		name_input.spellcheck = false;
@@ -1364,6 +1392,21 @@ function add_widget(func) {
 				};
 				input.addEventListener('mouseover', update_title);
 				input.addEventListener('input', update_title);
+				if (param['default']) {
+					input.value = param['default'];
+				}
+			} else if (type.startsWith('int:')) {
+				const range = type.substring('int:'.length).split('|');
+				console.assert(range.length === 2, 'bad format for int control');
+				const [min, max] = range;
+				input = document.createElement('input');
+				input.dataset.isInt = true;
+				input.classList.add('entry');
+				input.type = 'number';
+				input.min = min;
+				input.max = max;
+				input.step = 1;
+				input.value = Math.round((min + max) / 2);
 				if (param['default']) {
 					input.value = param['default'];
 				}
@@ -1727,10 +1770,17 @@ function get_control_value(widget_id, control_id) {
 			value: input.checked ? 1 : 0,
 		};
 	} else if (input.tagName === 'INPUT') {
-		return {
-			type: 'float',
-			value: parseFloat(input.value),
-		};
+		if (input.dataset.isInt) {
+			return {
+				type: 'int',
+				value: parseInt(input.value),
+			};
+		} else {
+			return {
+				type: 'float',
+				value: parseFloat(input.value),
+			};
+		}
 	} else if (input.tagName === 'SELECT') {
 		return {
 			type: 'int',
@@ -2028,10 +2078,10 @@ function startup() {
 		import_widgets(code_input.value);
 	});
 
-	gl = canvas.getContext('webgl');
+	gl = canvas.getContext('webgl2');
 	if (gl === null) {
 		// support for very-old-but-not-ancient browsers
-		gl = canvas.getContext('experimental-webgl');
+		gl = canvas.getContext('experimental-webgl2');
 		if (gl === null) {
 			show_error('your browser doesnt support webgl.\noh well.');
 			return;
@@ -2039,22 +2089,25 @@ function startup() {
 	}
 
 	program_post = compile_program('post', {
-		vertex: `
-attribute vec2 v_pos;
-varying vec2 uv;
+		vertex: `#version 300 es
+in vec2 v_pos;
+out vec2 uv;
+
 void main() {
 	uv = v_pos * 0.5 + 0.5;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `,
-		fragment: `
+		fragment: `#version 300 es
 #ifdef GL_ES
 precision highp float;
 #endif
 uniform sampler2D u_texture;
-varying vec2 uv;
+in vec2 uv;
+out vec4 color;
+
 void main() {
-	gl_FragColor = texture2D(u_texture, uv);
+	color = texture(u_texture, uv);
 }
 `,
 	});
