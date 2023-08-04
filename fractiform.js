@@ -2,7 +2,7 @@
 
 /*
 TODO:
-- select widget name when it's created
+- select widget name when widget is created
 - pause
 - settings:
   - enable/disable auto-update
@@ -30,8 +30,8 @@ let ui_shown = true;
 let ui_div;
 let ui_resize;
 let viewport_width, viewport_height;
-let html_id = 0;
-let widget_id = 1;
+let next_html_id = 1;
+let next_widget_id = 1;
 let widget_choices;
 let widget_search;
 let widgets_container;
@@ -39,8 +39,8 @@ let code_input;
 let error_element;
 let parsed_widgets;
 
-const width = 1920,
-	height = 1920;
+const render_width = 1920,
+	render_height = 1920;
 const GLSL_FLOAT_TYPES = ['float', 'vec2', 'vec3', 'vec4'];
 const GLSL_FLOAT_TYPE_PAIRS = GLSL_FLOAT_TYPES.flatMap((x) =>
 	GLSL_FLOAT_TYPES.map((y) => [x, y]),
@@ -108,17 +108,18 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 //! wrap.name: wrap mode
 //! wrap.control: select:clamp|wrap
 //! wrap.description: how to deal with the input components if they go outside [−1, 1]
-//! sample.name: sample mode
-//! sample.control: select:linear|nearest
-//! sample.description: how positions in between pixels should be sampled
+//! samp.id: sample
+//! samp.name: sample mode
+//! samp.control: select:linear|nearest
+//! samp.description: how positions in between pixels should be sampled
 
-vec3 last_frame(vec2 pos, int wrap, int sample) {
+vec3 last_frame(vec2 pos, int wrap, int samp) {
 	pos = pos * 0.5 + 0.5;
 	if (wrap == 0)
 		pos = clamp(pos, 0.0, 1.0);
 	else if (wrap == 1)
 		pos = mod(pos, 1.0);
-	if (sample == 1)
+	if (samp == 1)
 		pos = floor(0.5 + pos * ff_texture_size) * (1.0 / ff_texture_size);
 	return texture(ff_texture, pos).xyz;
 }
@@ -654,6 +655,40 @@ float noise_sin(vec3 x, float falloff, float freqstep, int levels) {
 	return v * (1.0 - falloff);
 }
 `,
+	`
+//! .name: Norm
+//! .alt: length/magnitude
+//! .description: the Euclidean norm ("length") of a vector
+//! .category: geometry
+
+float norm(float x) { return x; }
+float norm(vec2 x) { return length(x); }
+float norm(vec3 x) { return length(x); }
+float norm(vec4 x) { return length(x); }
+`,
+	`
+//! .name: Distance
+//! .description: the Euclidean distance between two points
+//! .category: geometry
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+float dist(${type} x, ${type} y) { return distance(x, y); }
+`,
+		).join('\n'),
+	`
+//! .name: Dot product
+//! .description: the dot product between two vectors
+//! .category: geometry
+//! .id: dot
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+float dot_prod(${type} x, ${type} y) { return dot(x, y); }
+`,
+		).join('\n'),
 ];
 
 function auto_update_enabled() {
@@ -772,14 +807,16 @@ function control_type(control) {
 
 function parse_widget_definition(code) {
 	code = code.trim();
+	const params = new Map();
+	const info = {
+		alt: '',
+		params,
+		description: '',
+		definitions: [],
+	};
 	let lines = code.split('\n');
-	let name = undefined;
-	let description = '';
-	let id = undefined;
-	let category = undefined;
 	let def_start = undefined;
 	let error = undefined;
-	const params = new Map();
 	const param_regex = /^[a-zA-Z_][a-zA-Z0-9_]*/gu;
 
 	lines.forEach((line, index) => {
@@ -796,13 +833,15 @@ function parse_widget_definition(code) {
 			const key = parts[0].trim();
 			const value = parts[1].trim();
 			if (key === '.name') {
-				name = value;
+				info.name = value;
 			} else if (key === '.description') {
-				description = value;
+				info.description = value;
 			} else if (key === '.id') {
-				id = value;
+				info.id = value;
 			} else if (key === '.category') {
-				category = value;
+				info.category = value;
+			} else if (key === '.alt') {
+				info.alt = value;
 			} else if (key.startsWith('.')) {
 				error = `on line ${index + 1}: key ${key} not recognized`;
 				return;
@@ -863,19 +902,17 @@ function parse_widget_definition(code) {
 	});
 
 	const parser = new Parser(lines.join('\n'), def_start + 1);
-	const definitions = [];
-	let function_name;
 	while (!parser.error && !parser.eof()) {
 		const definition_start = parser.i;
 		const return_type = parser.parse_type();
 		const fname = parser.parse_ident();
-		if (!function_name) function_name = fname;
-		if (!parser.error && fname !== function_name) {
+		if (!info.function_name) info.function_name = fname;
+		if (!parser.error && fname !== info.function_name) {
 			return {
-				error: `function defined as both '${function_name}' and '${fname}'`,
+				error: `function defined as both '${info.function_name}' and '${fname}'`,
 			};
 		}
-		if (!id) id = function_name;
+		if (!info.id) info.id = info.function_name;
 
 		const definition_params = [];
 		parser.expect('(');
@@ -886,7 +923,7 @@ function parse_widget_definition(code) {
 			definition_params.push({ type, name });
 
 			if (!params.has(name)) {
-				if (!definitions.size) {
+				if (!info.definitions.size) {
 					params.set(name, {});
 				} else if (!parser.error) {
 					return { error: `parameter ${name} does not exist` };
@@ -895,7 +932,7 @@ function parse_widget_definition(code) {
 		}
 
 		// we have all parameters now — fill out missing fields
-		if (!definitions.size) {
+		if (!info.definitions.size) {
 			for (const param_name of params.keys()) {
 				const param = params.get(param_name);
 				if (!param.id) param.id = param_name;
@@ -933,7 +970,7 @@ function parse_widget_definition(code) {
 		for (const param of params.values()) {
 			if (!input_types.has(param.id) && !param.control) {
 				parser.set_error(
-					`parameter ${param.id} not specified in definition of ${function_name}`,
+					`parameter ${param.id} not specified in definition of ${info.function_name}`,
 				);
 			}
 		}
@@ -951,7 +988,7 @@ function parse_widget_definition(code) {
 			definition_start,
 			definition_end,
 		);
-		definitions.push({
+		info.definitions.push({
 			input_types,
 			param_order,
 			return_type,
@@ -959,22 +996,14 @@ function parse_widget_definition(code) {
 		});
 	}
 	if (parser.error) {
-		const error = parser.error;
-		return { error: `on line ${error.line}: ${error.message}` };
+		const err = parser.error;
+		return { error: `on line ${err.line}: ${err.message}` };
 	}
-	if (!name) name = id;
-	if (!category) {
-		return { error: `no category set for ${id}` };
+	if (!info.name) info.name = info.id;
+	if (!info.category) {
+		return { error: `no category set for ${info.id}` };
 	}
-	return {
-		id,
-		category,
-		function_name,
-		name,
-		params,
-		description,
-		definitions,
-	};
+	return info;
 }
 
 const widget_info = new Map();
@@ -1262,7 +1291,7 @@ function add_widget(func) {
 	console.assert(info !== undefined, 'bad widget ID: ' + func);
 	const root = document.createElement('div');
 	root.dataset.func = func;
-	root.dataset.id = widget_id++;
+	root.dataset.id = next_widget_id++;
 	root.classList.add('widget');
 	root.addEventListener('mouseover', () => {
 		if (!dragging_widget) return;
@@ -1414,7 +1443,7 @@ function add_widget(func) {
 				console.error('bad control type');
 			}
 
-			input.id = 'gen-control-' + ++html_id;
+			input.id = 'gen-control-' + next_html_id++;
 			input.classList.add('control-input');
 			const label = document.createElement('label');
 			label.htmlFor = input.id;
@@ -1444,7 +1473,7 @@ function add_widget(func) {
 			input_element.classList.add('entry');
 			input_element.appendChild(document.createElement('br'));
 			input_element.type = 'text';
-			input_element.id = 'gen-input-' + ++html_id;
+			input_element.id = 'gen-input-' + next_html_id++;
 			const label = document.createElement('label');
 			label.htmlFor = input_element.id;
 			if (param.description) {
@@ -1515,11 +1544,11 @@ ${this.code.join('')}
 			console.assert(items.length >= 2, 'huhhhhh??');
 			const components = [];
 			for (const item of items) {
-				const input = this.compute_input(item);
-				if ('error' in input) {
-					return input;
+				const component = this.compute_input(item);
+				if ('error' in component) {
+					return component;
 				}
-				components.push(input);
+				components.push(component);
 			}
 			let component_count = 0;
 			let base_type = undefined;
@@ -1719,39 +1748,42 @@ function parse_widgets() {
 	for (const widget_div of document.getElementsByClassName('widget')) {
 		const name = get_widget_name(widget_div);
 		const func = widget_div.dataset.func;
-		const id = parseInt(widget_div.dataset.id);
+		const widget_id = parseInt(widget_div.dataset.id);
 		if (!name) {
-			return { error: 'widget has no name. please give it one.', widget: id };
+			return {
+				error: 'widget has no name. please give it one.',
+				widget: widget_id,
+			};
 		}
 		for (const c of name) {
 			if ('.,;|/\\:(){}[]+-<>\'"`~?!#%^&*'.indexOf(c) !== -1) {
 				return {
 					error: `widget name cannot contain the character ${c}`,
-					widget: id,
+					widget: widget_id,
 				};
 			}
 		}
 		if (widgets.has(name)) {
-			return { error: `duplicate widget name: ${name}`, widget: id };
+			return { error: `duplicate widget name: ${name}`, widget: widget_id };
 		}
 
 		const inputs = new Map();
 		const controls = [];
 		for (const input of widget_div.getElementsByClassName('in')) {
-			const id = input.dataset.id;
-			inputs.set(id, input.getElementsByClassName('entry')[0].innerText);
+			const input_id = input.dataset.id;
+			inputs.set(input_id, input.getElementsByClassName('entry')[0].innerText);
 		}
 		for (const control of widget_div.getElementsByClassName('control')) {
 			const control_id = control.dataset.id;
 			controls.push({
 				id: control_id,
-				uniform: `ff_control${id}_${control_id}`,
-				type: get_control_value(id, control_id).type,
+				uniform: `ff_control${widget_id}_${control_id}`,
+				type: get_control_value(widget_id, control_id).type,
 			});
 		}
 		widgets.set(name, {
 			func,
-			id,
+			id: widget_id,
 			inputs,
 			controls,
 		});
@@ -2016,8 +2048,10 @@ function update_widget_choices() {
 	const search_term = widget_search.value.toLowerCase();
 	const choices = widget_choices.getElementsByClassName('widget-choice');
 	for (const choice of choices) {
-		const name = widget_info.get(choice.dataset.id).name;
-		const shown = name.toLowerCase().indexOf(search_term) !== -1;
+		const widget = widget_info.get(choice.dataset.id);
+		const shown =
+			widget.name.toLowerCase().indexOf(search_term) !== -1 ||
+			widget.alt.toLowerCase().indexOf(search_term) !== -1;
 		choice.style.display = shown ? 'block' : 'none';
 	}
 	for (const category of widget_choices.getElementsByClassName(
@@ -2195,7 +2229,7 @@ function frame(time) {
 
 	const container_width = canvas_container.offsetWidth;
 	const container_height = canvas_container.offsetHeight;
-	const aspect_ratio = width / height;
+	const aspect_ratio = render_width / render_height;
 	let canvas_x = 0,
 		canvas_y = 0;
 	if (container_width / aspect_ratio < container_height) {
@@ -2240,13 +2274,13 @@ function frame(time) {
 }
 
 function perform_step() {
-	if (width < 0 || program_main === null) {
+	if (!program_main) {
 		// not properly loaded yet
 		return;
 	}
 
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-	gl.viewport(0, 0, width, height);
+	gl.viewport(0, 0, render_width, render_height);
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -2260,8 +2294,8 @@ function perform_step() {
 	);
 	gl.uniform2f(
 		gl.getUniformLocation(program_main, 'ff_texture_size'),
-		width,
-		height,
+		render_width,
+		render_height,
 	);
 
 	if (parsed_widgets) {
@@ -2288,7 +2322,16 @@ function perform_step() {
 	gl.drawArrays(gl.TRIANGLES, 0, 6);
 
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
-	gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, width, height, 0);
+	gl.copyTexImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		0,
+		0,
+		render_width,
+		render_height,
+		0,
+	);
 }
 
 function compile_program(name, shaders) {
@@ -2321,10 +2364,20 @@ function compile_program(name, shaders) {
 
 function set_up_framebuffer() {
 	framebuffer = gl.createFramebuffer();
-	const sampler_pixels = new Uint8Array(width * height * 4);
+	const sampler_pixels = new Uint8Array(render_width * render_height * 4);
 	sampler_pixels.fill(0);
-	set_up_rgba_texture(sampler_texture, width, height, sampler_pixels);
-	set_up_rgba_texture(framebuffer_color_texture, width, height, null);
+	set_up_rgba_texture(
+		sampler_texture,
+		render_width,
+		render_height,
+		sampler_pixels,
+	);
+	set_up_rgba_texture(
+		framebuffer_color_texture,
+		render_width,
+		render_height,
+		null,
+	);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 	gl.framebufferTexture2D(
 		gl.FRAMEBUFFER,

@@ -16,3 +16,8 @@ we use webgl2 (and consequently GLSL ES 3.00) because:
 - having non-constant loops in shaders is nice
 - there aren't that many browsers that support webgl and ES6 but not webgl2 (looking at caniuse.com, they probably
   make up around 2% of browser usage)
+
+### widget description
+
+- `.alt` - alternate text for searching. e.g. a widget with name "Foo" and alt "bar" will
+  show up in searches for both "foo" and "bar".

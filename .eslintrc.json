@@ -34,6 +34,9 @@
 	        "destructuring": "all"
 	    }
         ],
+        "no-shadow": [
+            "error"
+        ],
         // prettier has control of indentation
         "indent": ["off"],
         "no-mixed-spaces-and-tabs": ["off"]
