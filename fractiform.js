@@ -2,7 +2,6 @@
 
 /*
 TODO:
-- select widget name when widget is created
 - pause
 - settings:
   - enable/disable auto-update
@@ -2207,7 +2206,14 @@ void main() {
 				button.dataset.id = id;
 				category_element.appendChild(button);
 				button.addEventListener('click', () => {
-					add_widget(id);
+					const root = add_widget(id);
+					const widget_name = root.querySelector('.widget-name');
+					widget_name.focus();
+					const range = document.createRange();
+					range.selectNodeContents(widget_name);
+					const sel = window.getSelection();
+					sel.removeAllRanges();
+					sel.addRange(range);
 				});
 			}
 		}
