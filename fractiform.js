@@ -7,7 +7,6 @@ TODO:
   - enable/disable auto-update
   - resolution
 - widgets:
-  - white noise
   - worley noise
   - perlin noise
 */
@@ -688,6 +687,23 @@ float dist(${type} x, ${type} y) { return distance(x, y); }
 float dot_prod(${type} x, ${type} y) { return dot(x, y); }
 `,
 		).join('\n'),
+	`
+//! .name: White noise
+//! .description: Pure noise
+//! .category: noise
+
+float wnoise(vec4 x)
+{
+	uint k = 134775813u;
+	uvec4 u = floatBitsToUint(x) * k;
+	u = ((u >> 8) ^ u.yzwx) * k;
+	u = ((u >> 8) ^ u.yzwx) * k;
+	u = ((u >> 8) ^ u.yzwx) * k;
+	return float(u >> 8) * (1.0 / 16777216.0);
+}
+
+
+`,
 ];
 
 function auto_update_enabled() {
