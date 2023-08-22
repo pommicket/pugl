@@ -37,8 +37,8 @@ let code_input;
 let error_element;
 let parsed_widgets;
 
-const render_width = 1920,
-	render_height = 1920;
+const render_width = 1080,
+	render_height = 1080;
 const GLSL_FLOAT_TYPES = ['float', 'vec2', 'vec3', 'vec4'];
 const GLSL_FLOAT_TYPE_PAIRS = GLSL_FLOAT_TYPES.flatMap((x) =>
 	GLSL_FLOAT_TYPES.map((y) => [x, y]),
@@ -689,8 +689,38 @@ float dot_prod(${type} x, ${type} y) { return dot(x, y); }
 		).join('\n'),
 	`
 //! .name: White noise
-//! .description: Pure noise
+//! .description: Uniform distribution over [0, 1)
 //! .category: noise
+
+float wnoise(float x)
+{
+	uint k = 134775813u;
+	uint u = floatBitsToUint(x) * k;
+	u = ((u >> 8) ^ u) * k;
+	u = ((u >> 8) ^ u) * k;
+	u = ((u >> 8) ^ u) * k;
+	return float(u) * (1.0 / 4294967296.0);
+}
+
+float wnoise(vec2 x)
+{
+	uint k = 134775813u;
+	uvec2 u = floatBitsToUint(x) * k;
+	u = ((u >> 8) ^ u.yx) * k;
+	u = ((u >> 8) ^ u.yx) * k;
+	u = ((u >> 8) ^ u.yx) * k;
+	return float(u) * (1.0 / 4294967296.0);
+}
+
+float wnoise(vec3 x)
+{
+	uint k = 134775813u;
+	uvec3 u = floatBitsToUint(x) * k;
+	u = ((u >> 8) ^ u.yzx) * k;
+	u = ((u >> 8) ^ u.yzx) * k;
+	u = ((u >> 8) ^ u.yzx) * k;
+	return float(u) * (1.0 / 4294967296.0);
+}
 
 float wnoise(vec4 x)
 {
@@ -699,7 +729,7 @@ float wnoise(vec4 x)
 	u = ((u >> 8) ^ u.yzwx) * k;
 	u = ((u >> 8) ^ u.yzwx) * k;
 	u = ((u >> 8) ^ u.yzwx) * k;
-	return float(u >> 8) * (1.0 / 16777216.0);
+	return float(u) * (1.0 / 4294967296.0);
 }
 
 
