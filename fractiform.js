@@ -8,7 +8,6 @@ TODO:
   - resolution
 - widgets:
   - worley noise
-  - perlin noise
 */
 
 const APP_ID = 'fractiform';
@@ -731,8 +730,141 @@ float wnoise(vec4 x)
 	u = ((u >> 8) ^ u.yzwx) * k;
 	return float(u) * (1.0 / 4294967296.0);
 }
+`,
+	`
+//! .name: Perlin noise
+//! .description: Perlin noise with range [0, 1]
+//! .category: noise
+//! .require: wnoise
+//! x.default: .pos
+//! freq.description: input is scaled by this
+//! freq.default: 8
 
+float perlin(float x, float freq) {
+	x *= freq;
+	float grid0 = floor(x);
+	float grid1 = grid0 + 1.0;
+	
+	float d0 = x - grid0;
+	float d1 = x - grid1;
+	
+	float grad0 = wnoise(grid0) < 0.5 ? -1.0 : 1.0;
+	float grad1 = wnoise(grid1) < 0.5 ? -1.0 : 1.0;
+	
+	float n0 = dot(grad0, d0);
+	float n1 = dot(grad1, d1);
+	
+	float s = smoothstep(0.0, 1.0, d0);
+	float p = mix(n0, n1, s);
+	return p * 0.5 + 0.5;
+}
 
+float perlin(vec2 x, vec2 freq) {
+	x *= freq;
+	vec2 grid00 = floor(x);
+	vec2 grid01 = grid00 + vec2(0.0, 1.0);
+	vec2 grid10 = grid00 + vec2(1.0, 0.0);
+	vec2 grid11 = grid00 + 1.0;
+	
+	vec2 d00 = x - grid00;
+	vec2 d01 = x - grid01;
+	vec2 d10 = x - grid10;
+	vec2 d11 = x - grid11;
+	
+	float twopi = 6.2831853;
+	float theta00 = wnoise(grid00) * twopi;
+	float theta01 = wnoise(grid01) * twopi;
+	float theta10 = wnoise(grid10) * twopi;
+	float theta11 = wnoise(grid11) * twopi;
+	
+	vec2 grad00 = vec2(cos(theta00), sin(theta00));
+	vec2 grad01 = vec2(cos(theta01), sin(theta01));
+	vec2 grad10 = vec2(cos(theta10), sin(theta10));
+	vec2 grad11 = vec2(cos(theta11), sin(theta11));
+	
+	float n00 = dot(grad00, d00);
+	float n01 = dot(grad01, d01);
+	float n10 = dot(grad10, d10);
+	float n11 = dot(grad11, d11);
+	
+	vec2 s = smoothstep(0.0, 1.0, d00);
+	float n0 = mix(n00, n10, s.x);
+	float n1 = mix(n01, n11, s.x);
+	float p = mix(n0, n1, s.y);
+	return p * 0.5 + 0.5;
+}
+
+float perlin(vec3 x, vec3 freq) {
+	x *= freq;
+	vec3 grid000 = floor(x);
+	vec3 grid001 = grid000 + vec3(0.0, 0.0, 1.0);
+	vec3 grid010 = grid000 + vec3(0.0, 1.0, 0.0);
+	vec3 grid011 = grid000 + vec3(0.0, 1.0, 1.0);
+	vec3 grid100 = grid000 + vec3(1.0, 0.0, 0.0);
+	vec3 grid101 = grid000 + vec3(1.0, 0.0, 1.0);
+	vec3 grid110 = grid000 + vec3(1.0, 1.0, 0.0);
+	vec3 grid111 = grid000 + vec3(1.0, 1.0, 1.0);
+	
+	vec3 d000 = x - grid000;
+	vec3 d001 = x - grid001;
+	vec3 d010 = x - grid010;
+	vec3 d011 = x - grid011;
+	vec3 d100 = x - grid100;
+	vec3 d101 = x - grid101;
+	vec3 d110 = x - grid110;
+	vec3 d111 = x - grid111;
+	
+	// thanks to https://math.stackexchange.com/a/1586185
+	// this behemoth computes 9 random points on the unit sphere,
+	// seeded by grid000–grid111
+	float halfpi = 1.5707963;
+	float twopi = 6.2831853;
+	float a000 = acos(2.0 * wnoise(grid000) - 1.0) - halfpi;
+	float a001 = acos(2.0 * wnoise(grid001) - 1.0) - halfpi;
+	float a010 = acos(2.0 * wnoise(grid010) - 1.0) - halfpi;
+	float a011 = acos(2.0 * wnoise(grid011) - 1.0) - halfpi;
+	float a100 = acos(2.0 * wnoise(grid100) - 1.0) - halfpi;
+	float a101 = acos(2.0 * wnoise(grid101) - 1.0) - halfpi;
+	float a110 = acos(2.0 * wnoise(grid110) - 1.0) - halfpi;
+	float a111 = acos(2.0 * wnoise(grid111) - 1.0) - halfpi;
+	
+	float b000 = twopi * wnoise(vec4(grid000,3.0));
+	float b001 = twopi * wnoise(vec4(grid001,3.0));
+	float b010 = twopi * wnoise(vec4(grid010,3.0));
+	float b011 = twopi * wnoise(vec4(grid011,3.0));
+	float b100 = twopi * wnoise(vec4(grid100,3.0));
+	float b101 = twopi * wnoise(vec4(grid101,3.0));
+	float b110 = twopi * wnoise(vec4(grid110,3.0));
+	float b111 = twopi * wnoise(vec4(grid111,3.0));
+	
+	vec3 grad000 = vec3(cos(a000)*cos(b000), cos(a000)*sin(b000), sin(a000));
+	vec3 grad001 = vec3(cos(a001)*cos(b001), cos(a001)*sin(b001), sin(a001));
+	vec3 grad010 = vec3(cos(a010)*cos(b010), cos(a010)*sin(b010), sin(a010));
+	vec3 grad011 = vec3(cos(a011)*cos(b011), cos(a011)*sin(b011), sin(a011));
+	vec3 grad100 = vec3(cos(a100)*cos(b100), cos(a100)*sin(b100), sin(a100));
+	vec3 grad101 = vec3(cos(a101)*cos(b101), cos(a101)*sin(b101), sin(a101));
+	vec3 grad110 = vec3(cos(a110)*cos(b110), cos(a110)*sin(b110), sin(a110));
+	vec3 grad111 = vec3(cos(a111)*cos(b111), cos(a111)*sin(b111), sin(a111));
+	
+	float n000 = dot(grad000, d000);
+	float n001 = dot(grad001, d001);
+	float n010 = dot(grad010, d010);
+	float n011 = dot(grad011, d011);
+	float n100 = dot(grad100, d100);
+	float n101 = dot(grad101, d101);
+	float n110 = dot(grad110, d110);
+	float n111 = dot(grad111, d111);
+	
+	vec3 s = smoothstep(0.0, 1.0, d000);
+	float n00 = mix(n000, n100, s.x);
+	float n10 = mix(n010, n110, s.x);
+	float n0 = mix(n00, n10, s.y);
+	float n01 = mix(n001, n101, s.x);
+	float n11 = mix(n011, n111, s.x);
+	float n1 = mix(n01, n11, s.y);
+	float p = mix(n0, n1, s.z);
+	return p * 0.5 + 0.5;
+}
 `,
 ];
 
@@ -858,6 +990,7 @@ function parse_widget_definition(code) {
 		params,
 		description: '',
 		definitions: [],
+		require: [],
 	};
 	let lines = code.split('\n');
 	let def_start = undefined;
@@ -887,6 +1020,10 @@ function parse_widget_definition(code) {
 				info.category = value;
 			} else if (key === '.alt') {
 				info.alt = value;
+			} else if (key === '.require') {
+				for (const r of value.split(',')) {
+					info.require.push(r.trim());
+				}
 			} else if (key.startsWith('.')) {
 				error = `on line ${index + 1}: key ${key} not recognized`;
 				return;
@@ -1711,10 +1848,26 @@ ${this.code.join('')}
 		return value;
 	}
 
+	add_requirements_of(widget) {
+		for (const req_name of widget.require) {
+			const req = widget_info.get(req_name);
+			console.assert(req, 'bad widget requirement:', req_name);
+			const size0 = this.declarations.size;
+			for (const def of req.definitions) {
+				this.declarations.add(def.code);
+			}
+			if (this.declarations.size !== size0) {
+				this.add_requirements_of(req);
+			}
+		}
+	}
+
 	compute_widget_output(widget) {
 		if (widget.output) return widget.output;
 
 		const info = widget_info.get(widget.func);
+		this.add_requirements_of(info);
+		console.assert(info, 'bad widget func');
 		const args = new Map();
 		const input_types = new Map();
 		for (let [input, value] of widget.inputs) {
