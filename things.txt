@@ -1,0 +1,2 @@
+nice worley noise:
+worley;n:worley1;ix:.pos,.time;ifreq:8,8,1;;buffer;n:buffer1;iinput:pow1;;pow;n:pow1;ia:worley1;ib:1,3,0.7;;_out=buffer1

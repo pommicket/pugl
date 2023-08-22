@@ -6,8 +6,6 @@ TODO:
 - settings:
   - enable/disable auto-update
   - resolution
-- widgets:
-  - worley noise
 */
 
 const APP_ID = 'fractiform';
@@ -864,6 +862,46 @@ float perlin(vec3 x, vec3 freq) {
 	float n1 = mix(n01, n11, s.y);
 	float p = mix(n0, n1, s.z);
 	return p * 0.5 + 0.5;
+}
+`,
+	`
+//! .name: Worley noise
+//! .description: n-dimensional Worley noise
+//! .category: noise
+//! p.name: x
+//! p.id: x
+//! p.default: .pos
+//! freq.default: 8
+//! .require: wnoise
+
+float worley(vec2 p, vec2 freq) {
+	p *= freq;
+	vec2 f = floor(p);
+	float sqd = 1.0;
+	for (float dx = -1.0; dx <= +1.0; dx += 1.0) {
+		for (float dy = -1.0; dy <= +1.0; dy += 1.0) {
+			vec2 g = f + vec2(dx, dy);
+			vec2 c = g + vec2(wnoise(g), wnoise(vec3(g, 1.0)));
+			sqd = min(sqd, dot(c - p, c - p));
+		}
+	}
+	return sqrt(sqd);
+}
+
+float worley(vec3 p, vec3 freq) {
+	p *= freq;
+	vec3 f = floor(p);
+	float sqd = 1.0;
+	for (float dx = -1.0; dx <= +1.0; dx += 1.0) {
+		for (float dy = -1.0; dy <= +1.0; dy += 1.0) {
+			for (float dz = -1.0; dz <= +1.0; dz += 1.0) {
+				vec3 g = f + vec3(dx, dy, dz);
+				vec3 c = g + vec3(wnoise(g), wnoise(vec4(g, 1.0)), wnoise(vec4(g, 2.0)));
+				sqd = min(sqd, dot(c - p, c - p));
+			}
+		}
+	}
+	return sqrt(sqd);
 }
 `,
 ];
