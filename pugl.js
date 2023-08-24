@@ -6,7 +6,6 @@ TODO:
 - settings:
   - enable/disable auto-update
   - resolution
-- mouse pos uniform
 */
 
 const APP_ID = 'dh3YgVZQdX1Q';
@@ -34,6 +33,7 @@ let widgets_container;
 let code_input;
 let error_element;
 let parsed_widgets;
+const mouse_pos_ndc = Object.preventExtensions({ x: 0, y: 0 });
 
 const render_width = 1080,
 	render_height = 1080;
@@ -1310,6 +1310,7 @@ precision highp float;
 
 uniform sampler2D _texture;
 uniform float _time;
+uniform vec2 _mouse;
 uniform vec2 _texture_size;
 in vec2 _pos;
 out vec4 _out_color;
@@ -1859,6 +1860,10 @@ ${this.code.join('')}
 					return { code: '(0.5+0.5*_pos)', type: 'vec2' };
 				case '.time':
 					return { code: '_time', type: 'float' };
+				case '.mouse':
+					return { code: '_mouse', type: 'vec2' };
+				case '.mouse01':
+					return { code: '(0.5+0.5*_mouse)', type: 'vec2' };
 				default:
 					return { error: `no such builtin: ${input}` };
 			}
@@ -2465,6 +2470,12 @@ void main() {
 	import_widgets_from_local_storage();
 
 	frame(0.0);
+
+	canvas.addEventListener('mousemove', (e) => {
+		mouse_pos_ndc.x = (e.offsetX / canvas.offsetWidth) * 2 - 1;
+		mouse_pos_ndc.y = 1 - (e.offsetY / canvas.offsetHeight) * 2;
+	});
+
 	window.addEventListener('keydown', on_key_press);
 }
 
@@ -2540,6 +2551,11 @@ function perform_step() {
 		gl.getUniformLocation(program_main, '_texture_size'),
 		render_width,
 		render_height,
+	);
+	gl.uniform2f(
+		gl.getUniformLocation(program_main, '_mouse'),
+		mouse_pos_ndc.x,
+		mouse_pos_ndc.y,
 	);
 
 	if (parsed_widgets) {

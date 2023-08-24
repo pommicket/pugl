@@ -55,20 +55,6 @@
 		position: absolute;
 	}
 	
-	button {
-		border: 2px solid var(--ui-border);
-		background-color: black;
-		color: white;
-	}
-	button:hover, input:hover, input:active {
-		background-color: #fff3;
-	}
-	button:active {
-		background-color: #fff6;
-	}
-	button:focus, input:focus {
-		outline: 1px solid #0f0;
-	}
 	#ui-resize {
 		flex-grow: 0;
 		flex-shrink: 0;
@@ -88,11 +74,19 @@
 		flex-basis: 30%;
 	}
 	input, button {
-		display: inline-block;
-		border: 2px solid var(--ui-border);
+		border: 1px solid var(--ui-border);
 		background-color: transparent;
 		color: white;
 		padding: 0;
+	}
+	input[type=submit]:hover, button:hover {
+		background-color: #fff5;
+	}
+	input[type=submit]:active, button:active {
+		background-color: #fff9;
+	}
+	input:focus, [contenteditable]:focus, button:focus {
+		outline: 2px solid #77f;
 	}
 	.in select {
 		width: 5em;
@@ -192,6 +186,27 @@
 	summary {
 		cursor: pointer;
 	}
+	#title {
+		vertical-align: middle;
+		font-weight: bold;
+		font-size: 0.5cm;
+	}
+	#title img {
+		height: 1cm;
+	}
+	#resolution-form input[type=number] {
+		width: 4em;
+	}
+
+	input[type=number]::-webkit-inner-spin-button,
+	input[type=number]::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		appearance: none;
+		margin: 0;
+	}
+	input[type=number] {
+		-moz-appearance: textfield;
+	}
 	</style>
 	<meta charset="utf-8">
 	<meta content="width=device-width,initial-scale=1" name="viewport">
@@ -209,14 +224,24 @@
 <div id="page">
 	<div id="main">
 		<div id="ui">
+			<div id="title">
+				<img src="icon.png"> pugl
+			</div>
 			<form action="#" method="dialog" id="code-form">
 				<input type="text" placeholder="Code" id="code">
 				<input type="submit" value="import">
+			</form>
+			<form action="#" method="dialog" id="resolution-form">
+				<input type="number" placeholder="width">
+				×
+				<input type="number" placeholder="height">
+				<input type="submit" value="change resolution">
 			</form>
 			Add <input type="text" id="widget-search" placeholder="Search">
 			<div id="widget-choices"></div>
 			<div id="widgets-container"></div>
 		</div>
+		
 		<div id="ui-resize"></div>
 		
 		<div id="canvas-container">
