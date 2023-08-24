@@ -1,4 +1,4 @@
-## fractiform
+## pugl
 
 online shader thingamabob
 
@@ -21,3 +21,14 @@ we use webgl2 (and consequently GLSL ES 3.00) because:
 
 - `.alt` - alternate text for searching. e.g. a widget with name "Foo" and alt "bar" will
   show up in searches for both "foo" and "bar".
+
+### development
+
+before making any commits, run
+
+```sh
+npm install
+cp -i pre-commit .git/hooks/
+```
+
+this ensures that your changes are prettified &amp; linted.
