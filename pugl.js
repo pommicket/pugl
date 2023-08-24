@@ -6,9 +6,10 @@ TODO:
 - settings:
   - enable/disable auto-update
   - resolution
+- mouse pos uniform
 */
 
-const APP_ID = 'fractiform';
+const APP_ID = 'dh3YgVZQdX1Q';
 
 let gl;
 let program_main = null;
@@ -115,8 +116,8 @@ vec3 last_frame(vec2 pos, int wrap, int samp) {
 	else if (wrap == 1)
 		pos = mod(pos, 1.0);
 	if (samp == 1)
-		pos = floor(0.5 + pos * ff_texture_size) * (1.0 / ff_texture_size);
-	return texture(ff_texture, pos).xyz;
+		pos = floor(0.5 + pos * _texture_size) * (1.0 / _texture_size);
+	return texture(_texture, pos).xyz;
 }
 `,
 	`
@@ -1307,23 +1308,23 @@ function update_shader() {
 precision highp float;
 #endif
 
-uniform sampler2D ff_texture;
-uniform float ff_time;
-uniform vec2 ff_texture_size;
-in vec2 ff_pos;
-out vec4 ff_out_color;
+uniform sampler2D _texture;
+uniform float _time;
+uniform vec2 _texture_size;
+in vec2 _pos;
+out vec4 _out_color;
 
 ${source}
 
 void main() {
-	ff_out_color = vec4(ff_get_color(), 1.0);
+	_out_color = vec4(_get_color(), 1.0);
 }
 `;
 	const vertex_code = `#version 300 es
 in vec2 v_pos;
-out vec2 ff_pos;
+out vec2 _pos;
 void main() {
-	ff_pos = v_pos;
+	_pos = v_pos;
 	gl_Position = vec4(v_pos, 0.0, 1.0);
 }
 `;
@@ -1744,7 +1745,7 @@ class GLSLGenerationState {
 	get_code() {
 		return `
 ${Array.from(this.declarations).join('')}
-vec3 ff_get_color() {
+vec3 _get_color() {
 ${this.code.join('')}
 }`;
 	}
@@ -1853,11 +1854,11 @@ ${this.code.join('')}
 		if (dot === 0) {
 			switch (input) {
 				case '.pos':
-					return { code: 'ff_pos', type: 'vec2' };
+					return { code: '_pos', type: 'vec2' };
 				case '.pos01':
-					return { code: '(0.5+0.5*ff_pos)', type: 'vec2' };
+					return { code: '(0.5+0.5*_pos)', type: 'vec2' };
 				case '.time':
-					return { code: 'ff_time', type: 'float' };
+					return { code: '_time', type: 'float' };
 				default:
 					return { error: `no such builtin: ${input}` };
 			}
@@ -2013,7 +2014,7 @@ function parse_widgets() {
 			const control_id = control.dataset.id;
 			controls.push({
 				id: control_id,
-				uniform: `ff_control${widget_id}_${control_id}`,
+				uniform: `_control${widget_id}_${control_id}`,
 				type: get_control_value(widget_id, control_id).type,
 			});
 		}
@@ -2530,13 +2531,13 @@ function perform_step() {
 	gl.useProgram(program_main);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, sampler_texture);
-	gl.uniform1i(gl.getUniformLocation(program_main, 'ff_texture'), 0);
+	gl.uniform1i(gl.getUniformLocation(program_main, '_texture'), 0);
 	gl.uniform1f(
-		gl.getUniformLocation(program_main, 'ff_time'),
+		gl.getUniformLocation(program_main, '_time'),
 		current_time % 3600,
 	);
 	gl.uniform2f(
-		gl.getUniformLocation(program_main, 'ff_texture_size'),
+		gl.getUniformLocation(program_main, '_texture_size'),
 		render_width,
 		render_height,
 	);

@@ -1,3 +1,4 @@
 #!/bin/sh
-npx eslint fractiform.js || exit 1
-npx prettier -w fractiform.js || exit 1
+npx eslint pugl.js || exit 1
+npx prettier -w pugl.js || exit 1
+git add pugl.js
