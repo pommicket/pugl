@@ -85,6 +85,13 @@
 	input[type=submit]:active, button:active {
 		background-color: #fff9;
 	}
+	input[type=submit][disabled]:hover,
+	input[type=submit][disabled]:active,
+	button[disabled]:hover,
+	button[disabled]:active {
+		background-color: transparent;
+		cursor: not-allowed;
+	}
 	input:focus, [contenteditable]:focus, button:focus {
 		outline: 2px solid #77f;
 	}
@@ -207,6 +214,26 @@
 	input[type=number] {
 		-moz-appearance: textfield;
 	}
+	.img-button img, .img-button svg {
+		height: 2em;
+		display: block;
+	}
+	.img-button[disabled] img, 
+	.img-button[disabled] svg {
+		filter: brightness(50%);
+	}
+	.ui-section {
+		margin: 0.3em;
+	}
+	.ui-section label {
+		margin: auto;
+	}
+	.inline-block {
+		display: inline-block;
+	}
+	.no-wrap {
+		whitespace: no-wrap;
+	}
 	</style>
 	<meta charset="utf-8">
 	<meta content="width=device-width,initial-scale=1" name="viewport">
@@ -227,19 +254,39 @@
 			<div id="title">
 				<img src="icon.png"> pugl
 			</div>
-			<form action="#" method="dialog" id="code-form">
+			<form action="#" method="dialog" id="code-form" class="ui-section inline-block">
 				<input type="text" placeholder="Code" id="code">
 				<input type="submit" value="import">
 			</form>
-			<form action="#" method="dialog" id="resolution-form">
+			<form action="#" method="dialog" id="resolution-form" class="ui-section inline-block">
 				<input type="number" placeholder="width" id="resolution-x">
 				×
 				<input type="number" placeholder="height" id="resolution-y">
 				<input type="submit" value="change resolution">
 			</form>
-			Add <input type="text" id="widget-search" placeholder="Search">
-			<div id="widget-choices"></div>
-			<div id="widgets-container"></div>
+			<div class="ui-section">
+				<div class="inline-block no-wrap">
+					<button id="play" class="img-button" disabled>
+						<img alt="play" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHBhdGggZD0iTSA2IDI2IEwgMjYgMTYgTCA2IDYgeiIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSJub25lIiAvPjwvc3ZnPgo=">
+					</button>
+					<button id="pause" class="img-button">
+						<img alt="pause" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+CjxwYXRoIGQ9Ik0gNiA2IGwgMCAyMCBsIDcgMCBsIDAgLTIwIHogTSAxOSA2IGwgMCAyMCBsIDcgMCBsIDAgLTIwIHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0ibm9uZSIgLz4KPC9zdmc+Cg==">
+					</button>
+					<button id="step" class="img-button" disabled>
+						<img alt="step" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+CjxwYXRoIGQ9Ik0gNiA2IGwgMCAyMCBsIDQgMCBsIDAgLTIwIHogTSAxNCA2IGwgMTIgMTAgbCAtMTIgMTAgeiIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSJub25lIiAvPgo8L3N2Zz4K">
+					</button>
+				</div>
+				&nbsp;
+				<div class="inline-block no-wrap" title="automatically update display when anything is changed">
+					<input id="auto-update" type="checkbox">
+					<label for="auto-update">auto-update</label>
+				</div>
+			</div>
+			<div class="ui-section">
+				Add <input type="text" id="widget-search" placeholder="Search">
+				<div id="widget-choices"></div>
+				<div id="widgets-container"></div>
+			</div>
 		</div>
 		
 		<div id="ui-resize"></div>

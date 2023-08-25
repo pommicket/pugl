@@ -2,11 +2,9 @@
 
 /*
 TODO:
+- reset button
+- guide
 - about dialog
-- pause
-- settings:
-  - enable/disable auto-update
-  - resolution
 */
 
 const APP_ID = 'dh3YgVZQdX1Q';
@@ -34,11 +32,12 @@ let widgets_container;
 let code_input;
 let error_element;
 let parsed_widgets;
+let paused = false;
 
 const mouse_pos_ndc = Object.preventExtensions({ x: 0, y: 0 });
 
-let render_width = 1080,
-	render_height = 1080;
+let render_width = 1080;
+let render_height = 1080;
 const GLSL_FLOAT_TYPES = ['float', 'vec2', 'vec3', 'vec4'];
 const GLSL_FLOAT_TYPE_PAIRS = GLSL_FLOAT_TYPES.flatMap((x) =>
 	GLSL_FLOAT_TYPES.map((y) => [x, y]),
@@ -910,7 +909,7 @@ float worley(vec3 p, vec3 freq) {
 ];
 
 function auto_update_enabled() {
-	return true;
+	return document.getElementById('auto-update').checked;
 }
 
 function is_input(element) {
@@ -2367,6 +2366,30 @@ function startup() {
 		import_widgets(code_input.value);
 	});
 
+	const pause_element = document.getElementById('pause');
+	const play_element = document.getElementById('play');
+	const step_element = document.getElementById('step');
+	function update_step_buttons() {
+		play_element.disabled = !paused;
+		pause_element.disabled = paused;
+		step_element.disabled = !paused;
+	}
+
+	// ideally we would just put the initial state into the HTML
+	// but fucking firefox https://bugzilla.mozilla.org/show_bug.cgi?id=654072
+	update_step_buttons();
+	pause_element.addEventListener('click', () => {
+		paused = true;
+		update_step_buttons();
+	});
+	play_element.addEventListener('click', () => {
+		paused = false;
+		update_step_buttons();
+	});
+	step_element.addEventListener('click', () => {
+		perform_step();
+	});
+
 	gl = canvas.getContext('webgl2');
 	if (gl === null) {
 		// support for very-old-but-not-ancient browsers
@@ -2518,7 +2541,9 @@ function frame(time) {
 	canvas.style.left = canvas_x + 'px';
 	canvas.style.top = canvas_y + 'px';
 
-	perform_step();
+	if (!paused) {
+		perform_step();
+	}
 
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	gl.viewport(0, 0, viewport_width, viewport_height);
