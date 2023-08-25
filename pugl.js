@@ -2389,7 +2389,7 @@ function startup() {
 	// ideally we would just put the initial state into the HTML
 	// but fucking firefox https://bugzilla.mozilla.org/show_bug.cgi?id=654072
 	set_paused(paused);
-	
+
 	pause_element.addEventListener('click', () => {
 		set_paused(true);
 	});
@@ -2399,7 +2399,7 @@ function startup() {
 	step_element.addEventListener('click', () => {
 		perform_step();
 	});
-	
+
 	document.getElementById('restart').addEventListener('click', () => {
 		restart();
 	});
