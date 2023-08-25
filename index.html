@@ -266,19 +266,22 @@
 			</form>
 			<div class="ui-section">
 				<div class="inline-block no-wrap">
-					<button id="play" class="img-button" disabled>
+					<button disabled id="play" class="img-button" title="run the shader once per frame (shortcut: space)">
 						<img alt="play" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHBhdGggZD0iTSA2IDI2IEwgMjYgMTYgTCA2IDYgeiIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSJub25lIiAvPjwvc3ZnPgo=">
 					</button>
-					<button id="pause" class="img-button">
+					<button id="pause" class="img-button" title="run the shader only on command (shortcut: space)">
 						<img alt="pause" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+CjxwYXRoIGQ9Ik0gNiA2IGwgMCAyMCBsIDcgMCBsIDAgLTIwIHogTSAxOSA2IGwgMCAyMCBsIDcgMCBsIDAgLTIwIHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0ibm9uZSIgLz4KPC9zdmc+Cg==">
 					</button>
-					<button id="step" class="img-button" disabled>
+					<button disabled id="step" class="img-button" title="run the shader once (shortcut: .)">
 						<img alt="step" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+CjxwYXRoIGQ9Ik0gNiA2IGwgMCAyMCBsIDQgMCBsIDAgLTIwIHogTSAxNCA2IGwgMTIgMTAgbCAtMTIgMTAgeiIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSJub25lIiAvPgo8L3N2Zz4K">
+					</button>
+					<button id="restart" class="img-button" title="reset .time to 0, and update shader (shortcut: R)">
+						<img alt="restart" src="data:image/svg+xml;base64,Cgo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj4KPHBhdGggZD0iTTEyIDggYSA5IDkgMCAxIDAgMTAgNSBtIDAgLTIgbCAtNCA0IG0gNCAtNCBsIDUgMiIgc3Ryb2tlPSIjZmZmIiBmaWxsPSJub25lIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K">
 					</button>
 				</div>
 				&nbsp;
 				<div class="inline-block no-wrap" title="automatically update display when anything is changed">
-					<input id="auto-update" type="checkbox">
+					<input id="auto-update" type="checkbox" checked>
 					<label for="auto-update">auto-update</label>
 				</div>
 			</div>

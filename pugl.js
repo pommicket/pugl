@@ -19,7 +19,7 @@ let canvas;
 let framebuffer;
 let framebuffer_color_texture;
 let sampler_texture;
-let current_time;
+let current_time = 0;
 let ui_shown = true;
 let ui_div;
 let ui_resize;
@@ -33,6 +33,9 @@ let code_input;
 let error_element;
 let parsed_widgets;
 let paused = false;
+let pause_element;
+let step_element;
+let play_element;
 
 const mouse_pos_ndc = Object.preventExtensions({ x: 0, y: 0 });
 
@@ -912,6 +915,19 @@ function auto_update_enabled() {
 	return document.getElementById('auto-update').checked;
 }
 
+function set_paused(p) {
+	paused = p;
+	play_element.disabled = !paused;
+	pause_element.disabled = paused;
+	step_element.disabled = !paused;
+}
+
+function restart() {
+	current_time = 0;
+	update_shader();
+	perform_step();
+}
+
 function is_input(element) {
 	if (!element) return false;
 	for (let e = element; e; e = e.parentElement) {
@@ -1337,23 +1353,22 @@ void main() {
 }
 
 function on_key_press(e) {
-	const code = e.keyCode;
 	if (is_input(e.target)) {
 		return;
 	}
-	console.log('key press', code);
-
-	switch (code) {
-		case 32: // space
+	switch (e.key) {
+		case ' ':
+			set_paused(!paused);
+			break;
+		case '.':
 			perform_step();
 			break;
-		case 9: // tab
+		case 'Tab':
 			set_ui_shown(!ui_shown);
 			e.preventDefault();
 			break;
-		case 13: // return
-			update_shader();
-			e.preventDefault();
+		case 'r':
+			restart();
 			break;
 	}
 }
@@ -2366,28 +2381,27 @@ function startup() {
 		import_widgets(code_input.value);
 	});
 
-	const pause_element = document.getElementById('pause');
-	const play_element = document.getElementById('play');
-	const step_element = document.getElementById('step');
-	function update_step_buttons() {
-		play_element.disabled = !paused;
-		pause_element.disabled = paused;
-		step_element.disabled = !paused;
-	}
+	pause_element = document.getElementById('pause');
+	play_element = document.getElementById('play');
+	step_element = document.getElementById('step');
 
+	// need to update button disabled state.
 	// ideally we would just put the initial state into the HTML
 	// but fucking firefox https://bugzilla.mozilla.org/show_bug.cgi?id=654072
-	update_step_buttons();
+	set_paused(paused);
+	
 	pause_element.addEventListener('click', () => {
-		paused = true;
-		update_step_buttons();
+		set_paused(true);
 	});
 	play_element.addEventListener('click', () => {
-		paused = false;
-		update_step_buttons();
+		set_paused(false);
 	});
 	step_element.addEventListener('click', () => {
 		perform_step();
+	});
+	
+	document.getElementById('restart').addEventListener('click', () => {
+		restart();
 	});
 
 	gl = canvas.getContext('webgl2');
@@ -2516,8 +2530,14 @@ void main() {
 	window.addEventListener('keydown', on_key_press);
 }
 
+let last_frame_time = undefined;
 function frame(time) {
-	current_time = time * 1e-3;
+	time *= 1e-3; // just use seconds everybody
+
+	if (last_frame_time !== undefined && !paused) {
+		current_time += time - last_frame_time;
+	}
+	last_frame_time = time;
 
 	const container_width = canvas_container.offsetWidth;
 	const container_height = canvas_container.offsetHeight;
