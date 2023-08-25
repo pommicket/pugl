@@ -2,6 +2,7 @@
 
 /*
 TODO:
+- about dialog
 - pause
 - settings:
   - enable/disable auto-update
@@ -33,9 +34,10 @@ let widgets_container;
 let code_input;
 let error_element;
 let parsed_widgets;
+
 const mouse_pos_ndc = Object.preventExtensions({ x: 0, y: 0 });
 
-const render_width = 1080,
+let render_width = 1080,
 	render_height = 1080;
 const GLSL_FLOAT_TYPES = ['float', 'vec2', 'vec3', 'vec4'];
 const GLSL_FLOAT_TYPE_PAIRS = GLSL_FLOAT_TYPES.flatMap((x) =>
@@ -581,7 +583,7 @@ ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 `,
 		).join('\n'),
 	`
-//! .name: Sin noise
+//! .name: Sine noise
 //! .category: noise
 //! .description: Noise generated from sine waves
 //! x.id: x
@@ -2325,8 +2327,13 @@ function startup() {
 	widgets_container = document.getElementById('widgets-container');
 	code_input = document.getElementById('code');
 	error_element = document.getElementById('error');
+	const resolution_x_element = document.getElementById('resolution-x');
+	const resolution_y_element = document.getElementById('resolution-y');
 
 	ui_div.style.flexBasis = ui_div.offsetWidth + 'px'; // convert to px
+
+	resolution_x_element.value = render_width;
+	resolution_y_element.value = render_height;
 
 	// drag to resize ui
 	ui_resize.addEventListener('mousedown', (e) => {
@@ -2350,6 +2357,12 @@ function startup() {
 		}
 	});
 
+	document.getElementById('resolution-form').addEventListener('submit', () => {
+		render_width = resolution_x_element.value;
+		render_height = resolution_y_element.value;
+		set_up_framebuffer();
+	});
+
 	document.getElementById('code-form').addEventListener('submit', () => {
 		import_widgets(code_input.value);
 	});
@@ -2359,7 +2372,7 @@ function startup() {
 		// support for very-old-but-not-ancient browsers
 		gl = canvas.getContext('experimental-webgl2');
 		if (gl === null) {
-			show_error('your browser doesnt support webgl.\noh well.');
+			show_error('your browser doesnt support webgl2.\noh well.');
 			return;
 		}
 	}
@@ -2413,6 +2426,7 @@ void main() {
 
 	framebuffer_color_texture = gl.createTexture();
 	sampler_texture = gl.createTexture();
+	framebuffer = gl.createFramebuffer();
 
 	{
 		// add widget buttons
@@ -2623,7 +2637,6 @@ function compile_program(name, shaders) {
 }
 
 function set_up_framebuffer() {
-	framebuffer = gl.createFramebuffer();
 	const sampler_pixels = new Uint8Array(render_width * render_height * 4);
 	sampler_pixels.fill(0);
 	set_up_rgba_texture(
