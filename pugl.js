@@ -2,9 +2,11 @@
 
 /*
 TODO:
-- reset button
 - guide
 - about dialog
+- widgets:
+  - min
+  - max
 */
 
 const APP_ID = 'dh3YgVZQdX1Q';
@@ -2369,6 +2371,10 @@ function startup() {
 			}
 			e.preventDefault();
 		}
+	});
+
+	document.getElementById('about-button').addEventListener('click', () => {
+		document.getElementById('about-dialog').showModal();
 	});
 
 	document.getElementById('resolution-form').addEventListener('submit', () => {
