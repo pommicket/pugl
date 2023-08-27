@@ -1701,6 +1701,10 @@ function add_widget(func) {
 			const container = document.createElement('div');
 			container.classList.add('in');
 			container.dataset.id = param.id;
+			// input_wrapper is a workaround for firefox bug
+			//   https://bugzilla.mozilla.org/show_bug.cgi?id=1248186
+			const input_wrapper = document.createElement('div');
+			input_wrapper.classList.add('inline-block');
 			const input_element = document.createElement('div');
 			input_element.contentEditable = true;
 			input_element.spellcheck = false;
@@ -1714,6 +1718,8 @@ function add_widget(func) {
 			input_element.appendChild(document.createElement('br'));
 			input_element.type = 'text';
 			input_element.id = 'gen-input-' + next_html_id++;
+			input_wrapper.appendChild(input_element);
+
 			const label = document.createElement('label');
 			label.htmlFor = input_element.id;
 			if (param.description) {
@@ -1725,7 +1731,7 @@ function add_widget(func) {
 			label.appendChild(document.createTextNode(param.name));
 			container.appendChild(label);
 			container.appendChild(document.createTextNode('='));
-			container.appendChild(input_element);
+			container.appendChild(input_wrapper);
 			root.appendChild(container);
 			root.appendChild(document.createTextNode(' '));
 
