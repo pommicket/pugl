@@ -3,10 +3,6 @@
 /*
 TODO:
 - guide
-- about dialog
-- widgets:
-  - min
-  - max
 */
 
 const APP_ID = 'dh3YgVZQdX1Q';
@@ -911,6 +907,30 @@ float worley(vec3 p, vec3 freq) {
 	return sqrt(sqd);
 }
 `,
+	`
+//! .name: Minimum
+//! .description: minimum of two values
+//! .category: math
+//! .id: min
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} _min(${type} x, ${type} y) {
+	return min(x, y);
+}`,
+		).join('\n'),
+	`
+//! .name: Maximum
+//! .description: maximum of two values
+//! .category: math
+//! .id: max
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} _max(${type} x, ${type} y) {
+	return max(x, y);
+}`,
+		).join('\n'),
 ];
 
 function auto_update_enabled() {

@@ -5,9 +5,7 @@
 
 body {
 	font-family: sans-serif;
-	margin: 0;
 	padding: 0;
-	overflow: hidden;
 }
 body,
 dialog {
@@ -253,4 +251,10 @@ input[type='number'] {
 }
 .no-wrap {
 	whitespace: no-wrap;
+}
+.no-margin {
+	margin: 0;
+}
+.overflow-hidden {
+	overflow: hidden;
 }

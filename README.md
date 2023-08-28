@@ -2,6 +2,8 @@
 
 online shader thingamabob
 
+the main files of interest are `index.html` and `pugl.js`.
+
 ### JS features
 
 i have been pretty liberal about using modern javascript;
