@@ -246,6 +246,46 @@ input[type='number'] {
 .ui-section label {
 	margin: auto;
 }
+
+#guide-body {
+	display: flex;
+	margin: 0;
+}
+
+#guide-sidebar {
+	flex: 1;
+	border-right: 2px solid white;
+	height: 100vh;
+	position: sticky;
+	background: #333;
+}
+
+#guide-contents {
+	flex: 4;
+	padding: 4px;
+}
+
+.guide-sidebar-item,
+.guide-sidebar-heading {
+	border-bottom: 1px solid #fff2;
+	padding: 4px;
+	text-decoration: none;
+	display: block;
+	margin: 0;
+}
+
+.guide-sidebar-item:hover {
+	background: #8fc3;
+}
+
+.guide-sidebar-item-indented {
+	padding-left: 20%;
+}
+
+.guide-sidebar-item-active {
+	font-weight: bold;
+}
+
 .inline-block {
 	display: inline-block;
 }

@@ -140,6 +140,32 @@ ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 `,
 		).join('\n'),
 	`
+//! .name: Add
+//! .category: math
+//! .description: add two numbers or vectors
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} add(${type} a, ${type} b) {
+	return a + b;
+}
+`,
+		).join('\n'),
+	`
+//! .name: Subtract
+//! .category: math
+//! .description: subtract one number or vector from another
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} sub(${type} a, ${type} b) {
+	return a - b;
+}
+`,
+		).join('\n'),
+	`
 //! .name: Multiply
 //! .category: math
 //! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
@@ -148,6 +174,18 @@ ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 			(type) => `
 ${type} mul(${type} a, ${type} b) {
 	return a * b;
+}
+`,
+		).join('\n'),
+	`
+//! .name: Divide
+//! .category: math
+//! .description: divide one number or vector by another
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} div(${type} a, ${type} b) {
+	return a / b;
 }
 `,
 		).join('\n'),
@@ -915,8 +953,8 @@ float worley(vec3 p, vec3 freq) {
 ` +
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
-${type} _min(${type} x, ${type} y) {
-	return min(x, y);
+${type} _min(${type} a, ${type} b) {
+	return min(a, b);
 }`,
 		).join('\n'),
 	`
@@ -927,8 +965,8 @@ ${type} _min(${type} x, ${type} y) {
 ` +
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
-${type} _max(${type} x, ${type} y) {
-	return max(x, y);
+${type} _max(${type} a, ${type} b) {
+	return max(a, b);
 }`,
 		).join('\n'),
 ];

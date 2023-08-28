@@ -1,0 +1,27 @@
+--- getting started
+
+<p>
+note: this section is only for people who want to contribute to pugl itself.
+</p>
+
+<p>
+after cloning the <a href="https://github.com/pommicket/pugl" target="_blank">repository</a>,
+make sure you run
+<pre><code>npm install
+ln -s ../../pre-commit .git/hooks/</code></pre>
+
+this ensures that your changes are prettified &amp; linted.
+</p>
+
+<p>
+the main files of interest are <code>index.html</code> and <code>pugl.js</code>, which has all
+the JavaScript for pugl (hopefully it doesn't become too unmanageable to have just one file).
+</p>
+
+<h3>contributing to the guide</h3>
+<p>
+the guide is automatically generated from the files in <code>guide-src/</code> by <code>guide-src/make.py</code>
+(you can also just run <code>make</code> to generate it), which is a simple script whose main purpose is adding
+a sidebar to all of the guide pages. any PNG files are automatically copied from <code>guide-src/</code> to <code>guide/</code>.
+when you add or remove pages from the guide, you'll need to edit <code>guide-src/outline.txt</code>.
+</p>

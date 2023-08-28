@@ -1,0 +1,69 @@
+--- guide
+
+<h3>your first pugl</h3>
+<p>
+when you load up pugl for the first time, you should be greeted with a "Buffer" widget.
+try changing its "input" value to <code>.pos.x</code>.
+<div>
+	<img src="ex-posx.png" alt="">
+</div>
+you should see a nice gradient like this: <span style="display:inline-block;margin-right:1em;width:2em;height:1em;background-image:linear-gradient(90deg, #000,#000,#000,#fff);"></span>
+here the color of each pixel is directly determined by its x coordinate.
+specifically: <code>.pos.x</code> is −1 at the left side of the screen and +1 at the right side of the screen.
+since the "Buffer" widget's title is in <span style="color:yellow;font-weight:bold;">yellow</span>,
+the pixel values will be drawn from it. 0 (or anything below 0) is black and 1 (or anything above 1) is white,
+so we see a gradient from black to white starting from the center of the screen.
+</p>
+<p>
+now let's try something a little more interesting. try adding a "Multiply" widget (by searching for it or
+selecting it from the "math" section). set the "a" input to <code>.pos.x</code> and the "b" input to
+<code>.pos.y</code>. then click on the "Multiply" text to set it as the active widget.
+<div>
+	<img src="ex-multiply.png" alt="">
+</div>
+you should now see a more interesting pattern where two of the corners of the screen are
+white, and the other two corners are black: <img src="output-multiply.png" style="height:1em;" alt="">
+</p>
+
+<h3>vectors</h3>
+
+<p>
+well, black and white is pretty boring. let's try making some colors!
+one of the nice things about shaders is that they're very good at dealing with <a href="https://en.wikipedia.org/wiki/Vector_%28mathematics_and_physics%29" target="_blank">vectors</a>.
+there's a lot of mathematical theory behind vectors, but for simple shader programming all that really matters is that a vector is a list of numbers (called <em>components</em>),
+&amp; in shaders you basically only deal with vectors with 2 to 4 components (labelled x, y, z, w).
+in graphics programming, colors are represented as vectors with 3 components, <span style="color:#f00;">red</span>,
+<span style="color:#0f0;">green</span>, and <span style="color:#22f;">blue</span>, which go from 0 to 1.
+try putting <code>0,0.8,1</code> in a "Buffer" widget and making it active.
+now the widget is outputting a vector with x=0, y=0.8, and z=1, so
+you'll get a nice <span style="color:#0cf">greenish blue</span> color!
+</p>
+
+<p>
+<code>.pos</code> is itself a vector, so you can just throw it into the Buffer input:
+<div><img src="ex-vector.png" alt=""></div>
+notice how the output is red on the right side of the screen (where the x component of <code>.pos</code> is high)
+and green at the top of the screen (where the y component of <code>.pos</code> is high).
+</p>
+
+<p>
+most widgets like Multiply work on both numbers and vectors. try multiplying together
+<code>.pos</code> and <code>.pos.x</code>:
+<div><img src="ex-multiply-vector.png" alt=""> <img src="output-multiply-vector.png" alt="" height="32"></div>
+this multiplies each of the components of <code>.pos</code> by <code>.pos.x</code>.
+so the top-left corner is red, because (−1, 1) × −1 = (1, −1), so the top-left pixel gets a red value of 1 and a green value of −1.
+</p>
+
+<h3>multiple widgets</h3>
+
+<p>
+you can use the output of one widget to specify the input of another widget using its name.
+try creating an "Add" widget with inputs <code>mul1,0</code> and <code>0,0,.pos.x</code> (assuming
+your Multiply widget from the last section was called "mul1").
+<div><img src="ex-multiply-add.png" alt=""> <img src="output-multiply-add.png" alt="" height="32"></div>
+now the left side looks the same as before, but the right side (where <code>.pos.x</code> is 1) is bluer!
+</p>
+
+<h3>putting everything together</h3>
+
+<h1 style="color:red">TODO</h1>
