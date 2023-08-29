@@ -2,8 +2,8 @@ cool:
 rot2;n:rot21;iv:mul1;itheta:angle;cdir:0;;mul;n:mul1;ia:.pos;ib:r;;prev;n:prev1;ipos:rot21;cwrap:0;csample:0;;square;n:square1;ipos:.pos;iinside:hue2;ioutside:mul3;isize:0.995;;wtadd;n:wtadd2;iaw:1;ibw:1;ia:.pos.x;ib:.pos.y;;hue;n:hue1;icolor:#00f;ishift:hshift;;wtadd;n:wtadd3;iaw:1;ibw:1;ia:wtadd2;ib:.time;;sin;n:sin1;it:wtadd3;iperiod:1;iamp:1;iphase:0;icenter:0;ctype:0;cnonneg:1;;pow;n:pow1;ia:sin1;ib:1;;mul;n:hshift;ia:pow1;ib:0.3333;;sin;n:angle;it:.time;iperiod:2;iamp:0.01;iphase:0;icenter:0.01;ctype:0;cnonneg:1;;sin;n:r;it:.time;iperiod:1.618;iamp:0.01;iphase:0;icenter:1;ctype:0;cnonneg:1;;mul;n:mul3;ia:2;ib:hue1;;clamp;n:clamp1;ival:mul3;imin:0;imax:1;;mul;n:mul2;ia:clamp1.x;ib:clamp1.z;;wtadd;n:wtadd4;iaw:1;ibw:-0.2;ia:1;ib:mul2;;mul;n:mul4;ia:clamp1;ib:wtadd4;;hue;n:hue2;icolor:prev1;ishift:0.01;;_out=square1
 circle;n:circle1;ipos:.pos;iinside:hue1;ioutside:#a00;isize:0.99;;prev;n:prev1;ipos:rot21;cwrap:1;csample:0;;mul;n:mul1;ia:.pos;ib:sin1;;hue;n:hue1;icolor:prev1;ishift:0.2;;rot2;n:rot21;iv:mul1;itheta:mul2;cdir:0;;mul;n:mul2;ia:.time;ib:0.1;;sin;n:sin1;it:.time;iperiod:4;iamp:0.05;iphase:0;icenter:1.5;cnonneg:0;;_out=circle1
 
-simple worley noise:
-worley;n:worley1;ix:.pos,.time;ifreq:8,8,1;;buffer;n:buffer1;iinput:pow1;;pow;n:pow1;ia:worley1;ib:1,3,0.7;;_out=buffer1
+worley noise:
+worley;n:worley1;ix:.pos,.time;ifreq:8,8,1;;pow;n:pow1;ia:worley1;ib:1,8,8;;worley;n:worley2;ix:.pos,.time;ifreq:12,12,1;;pow;n:pow2;ia:worley2;ib:2,8,2;;clamp;n:clamp1;ival:pow1;imin:pow2;imax:1;;_out=clamp1
 
 simple fun with floor:
 floor;n:floor1;ix:.pos01.x;istepw:0.1;isteph:0.1,0.1,0.2;iphase:0;;_out=floor1

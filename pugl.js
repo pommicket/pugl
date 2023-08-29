@@ -103,6 +103,7 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 //! .id: prev
 //! .description: sample from the previous frame
 //! pos.description: position to sample — bottom-left corner is (−1, −1), top-right corner is (1, 1)
+//! pos.default: .pos
 //! wrap.name: wrap mode
 //! wrap.control: select:clamp|wrap
 //! wrap.description: how to deal with the input components if they go outside [−1, 1]
@@ -123,7 +124,8 @@ vec3 last_frame(vec2 pos, int wrap, int samp) {
 }
 `,
 	`
-//! .name: Weighted add
+//! .name: Weighted sum
+//! .alt: weighted add
 //! .category: math
 //! .description: add two numbers or vectors with weights
 //! aw.name: a weight
@@ -1328,7 +1330,10 @@ function color_hex_to_float(hex) {
 	let g;
 	let b;
 	let a;
+
 	hex = hex.trim();
+
+	if (!hex || hex[0] !== '#') return null;
 
 	if (hex.length === 7 || hex.length === 9) {
 		// #rrggbb or #rrggbbaa
