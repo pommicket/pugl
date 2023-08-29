@@ -1,7 +1,6 @@
 widget-inputs: Widget inputs
-/constants.html
+/syntax.html
 /builtins.html
-/vectors.html
 development: Development
 /index.html
 /js-features.html

@@ -301,3 +301,15 @@ input[type='number'] {
 .overflow-hidden {
 	overflow: hidden;
 }
+
+table {
+	border-collapse: collapse;
+	margin: 0.5em;
+}
+
+td,
+th {
+	border: 2px solid white;
+	margin: 0;
+	padding: 0.2em;
+}

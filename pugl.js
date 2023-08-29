@@ -1907,11 +1907,34 @@ ${this.code.join('')}
 		}
 
 		const dot = input.lastIndexOf('.');
-		const field = dot === -1 ? 'out' : input.substring(dot + 1);
-
-		if (field.length === 0) {
+		if (dot === input.length - 1) {
 			return { error: 'inputs should not end in .' };
 		}
+
+		if (dot === 0) {
+			switch (input) {
+				case '.pos':
+					return { code: '_pos', type: 'vec2' };
+				case '.pos01':
+					return { code: '(0.5+0.5*_pos)', type: 'vec2' };
+				case '.time':
+					return { code: '_time', type: 'float' };
+				case '.mouse':
+					return { code: '_mouse', type: 'vec2' };
+				case '.mouse01':
+					return { code: '(0.5+0.5*_mouse)', type: 'vec2' };
+				case '.π':
+				case '.pi':
+					return { code: '(3.1415927)', type: 'float' };
+				case '.2π':
+				case '.2pi':
+					return { code: '(6.2831853)', type: 'float' };
+				default:
+					return { error: `no such builtin: ${input}` };
+			}
+		}
+
+		const field = dot === -1 ? '' : input.substring(dot + 1);
 
 		if (
 			field.length >= 1 &&
@@ -1937,28 +1960,10 @@ ${this.code.join('')}
 				code: `(${vector.code}).${field}`,
 				type: type_vec(base, field.length),
 			};
-		}
-
-		if (dot === 0) {
-			switch (input) {
-				case '.pos':
-					return { code: '_pos', type: 'vec2' };
-				case '.pos01':
-					return { code: '(0.5+0.5*_pos)', type: 'vec2' };
-				case '.time':
-					return { code: '_time', type: 'float' };
-				case '.mouse':
-					return { code: '_mouse', type: 'vec2' };
-				case '.mouse01':
-					return { code: '(0.5+0.5*_mouse)', type: 'vec2' };
-				default:
-					return { error: `no such builtin: ${input}` };
-			}
-		}
-
-		if (field !== 'out') {
+		} else if (field) {
 			return { error: `no such field: ${field}` };
 		}
+
 		const widget = this.widgets.get(input);
 		if (widget === undefined) {
 			return { error: `cannot find widget '${input}'` };
