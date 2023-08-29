@@ -250,19 +250,22 @@ input[type='number'] {
 #guide-body {
 	display: flex;
 	margin: 0;
+	overflow: hidden;
 }
 
 #guide-sidebar {
 	flex: 1;
 	border-right: 2px solid white;
 	height: 100vh;
-	position: sticky;
 	background: #333;
+	overflow: auto;
 }
 
 #guide-contents {
 	flex: 4;
 	padding: 4px;
+	height: 100vh;
+	overflow: auto;
 }
 
 .guide-sidebar-item,
