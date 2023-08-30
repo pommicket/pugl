@@ -2,7 +2,7 @@
 
 /*
 TODO:
-- guide
+- multiple creations
 */
 
 const APP_ID = 'dh3YgVZQdX1Q';

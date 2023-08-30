@@ -10,7 +10,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 try:
 	for f in os.listdir(INPUT_DIR):
-		if f.endswith('.png'):
+		if f.endswith('.png') or f.endswith('.svg') or f.endswith('.jpg') or f.endswith('.jpeg'):
 			shutil.copyfile(INPUT_DIR + '/' + f, OUTPUT_DIR + '/' + f)
 		elif not '.' in f:
 			os.makedirs(OUTPUT_DIR + '/' + f, exist_ok=True)
