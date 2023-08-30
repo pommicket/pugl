@@ -32,34 +32,46 @@ class Section:
 	
 	def __repr__(self):
 		return ''.join(['Section(path=', repr(self.path), ', name=', repr(self.name), ', items=', repr(self.items), ')'])
-		
+
 outline = [l.strip() for l in readlines('{}/outline.txt'.format(INPUT_DIR)) if l.strip()]
-sections = []
+entries = []
 for item in outline:
 	if item[0] == '/':
 		assert item.endswith('.html'), 'expected path ending in .html'
-		sections[-1].items.append(item[1:])
-	else:
+		entries[-1].items.append(item[1:])
+	elif ':' in item:
 		[path, name] = item.split(': ')
-		sections.append(Section(path, name))
+		entries.append(Section(path, name))
+	else:
+		entries.append(item)
 
 sidebar_content = [
 	('', '<a class="guide-sidebar-item" href="<ROOT>../index.html">back to pugl</a>'),
-	('index.html', '<a class="guide-sidebar-item" href="<ROOT>index.html">the basics</a>'),
 ]
 
-for section in sections:
-	sidebar_content.append(('', '<h3 class="guide-sidebar-heading">{}</h3>'.format(section.name)))
-	for item in section.items:
-		path = '{}/{}/{}'.format(INPUT_DIR, section.path, item)
-		file = open(path)
-		first_line = file.readline().strip()
-		file.close()
-		assert first_line.startswith(TITLE_PREFIX), 'file {} doesn\'t start with title prefix {}'.format(path, TITLE_PREFIX)
-		title = first_line[len(TITLE_PREFIX):].strip()
-		assert '"' not in path, 'path {} should not contain "'.format(path)
-		url = quote('{}/{}'.format(section.path, item))
-		sidebar_content.append((section.path + '/' + item, '<a href="<ROOT>{}" class="guide-sidebar-item guide-sidebar-item-indented">{}</a>'.format(url, html.escape(title))))
+def add_sidebar_link_for_page(path, indented):
+	file = open(INPUT_DIR + '/' + path)
+	first_line = file.readline().strip()
+	file.close()
+	assert first_line.startswith(TITLE_PREFIX), 'file {} doesn\'t start with title prefix {}'.format(path, TITLE_PREFIX)
+	title = first_line[len(TITLE_PREFIX):].strip()
+	sidebar_content.append((
+		path,
+		'<a href="<ROOT>{url}" class="guide-sidebar-item{c}">{title}</a>'.format(
+			url=quote(path), c=' guide-sidebar-item-indented' if indented else '', title=html.escape(title)
+		)
+	))
+
+for entry in entries:
+	if isinstance(entry, Section):
+		section = entry
+		sidebar_content.append(('', '<h3 class="guide-sidebar-heading">{}</h3>'.format(section.name)))
+		for item in section.items:
+			path = '{}/{}/{}'.format(INPUT_DIR, section.path, item)
+			add_sidebar_link_for_page(section.path + '/' + item, True)
+	else:
+		assert isinstance(entry, str)
+		add_sidebar_link_for_page(entry, False)
 
 def process_file(path):
 	count = path.count('/')
@@ -102,7 +114,10 @@ def process_file(path):
 	f.write(output)
 	f.close()
 
-process_file('index.html')
-for section in sections:
-	for item in section.items:
-		process_file('{}/{}'.format(section.path, item))
+for entry in entries:
+	if isinstance(entry, Section):
+		section = entry
+		for item in section.items:
+			process_file('{}/{}'.format(section.path, item))
+	else:
+		process_file(entry)

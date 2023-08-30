@@ -1,6 +1,5 @@
-widget-inputs: Widget inputs
-/syntax.html
-/builtins.html
-development: Development
+index.html
+widget-inputs.html
+development: development
 /index.html
 /js-features.html

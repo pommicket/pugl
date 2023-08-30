@@ -1,0 +1,41 @@
+--- widget inputs
+
+<h2>syntax</h2>
+
+<p>
+here are the various ways of specifying widget inputs:
+</p>
+<table>
+<tbody>
+<tr><th style="min-width:10em;">format</th><th>example</th><th>description</th></tr>
+<tr><td><code>&lt;number&gt;</code></td><td><code>5.3</code></td><td>a number</td></tr>
+<tr><td><code>#RRGGBB</code></td><td><code>#ff831c</code></td><td>a 3-component vector whose values are taken from the given color code. a color picker will be shown next to the input.</td></tr>
+<tr><td><code>#RRGGBBAA</code></td><td><code>#ff831c22</code></td><td>a 4-component vector whose values are taken from the color code.</td></tr>
+<tr><td><code>&lt;widget name&gt;</code></td><td><code>add1</code></td><td>the output from another widget</td></tr>
+<tr><td><code>&lt;input&gt;,&lt;input&gt;</code></td><td><code>.pos,0</code></td><td>a vector composed of <code>a</code> and <code>b</code> (which can themselves be vectors)</td></tr>
+<tr><td><code>&lt;input&gt;.&lt;component&gt;</code></td><td><code>.pos.x</code></td><td>extract a single component from a vector</td></tr>
+<tr><td><code>&lt;input&gt;.&lt;swizzle&gt;</code></td><td><code>.pos.yxy</code></td><td>reorder vector components (this example is equivalent to <code>.pos.y, .pos.x, .pos.y</code>)</td></tr>
+</tbody>
+</table>
+
+
+<h2>built-in values</h2>
+
+all of pugl's built-in values begin with a <code>.</code> to distinguish
+them from your widgets.
+here they all are.
+below, <code>float</code> refers to a plain old number,
+<code>vec2</code> is a 2-component vector, etc.
+
+<table>
+<tbody>
+<tr><th>built‑in</th><th>type</th><th>description</th></tr>
+<tr><td><code>.pos</code></td><td><code>vec2</code><td>the position of the pixel, with (−1, −1) being the bottom-left corner, and (+1, +1) being the top-right corner.</td></tr>
+<tr><td><code>.pos01</code></td><td><code>vec2</code><td>the position of the pixel, with (0, 0) being the bottom-left corner, and (+1, +1) being the top-right corner.</td></tr>
+<tr><td><code>.time</code></td><td><code>float</code><td>the amount of time that has passed (wraps around every hour to prevent imprecision issues).</td></tr>
+<tr><td><code>.mouse</code></td><td><code>vec2</code><td>the position of the mouse ranging from (−1, −1) to (+1, +1).</td></tr>
+<tr><td><code>.mouse01</code></td><td><code>vec2</code><td>the position of the mouse ranging from (0, 0) to (+1, +1).</td></tr>
+<tr><td><code>.pi</code></td><td><code>float</code><td>π (3.1415…).</td></tr>
+<tr><td><code>.2pi</code></td><td><code>float</code><td>2π (6.2831…).</td></tr>
+</tbody>
+</table>
