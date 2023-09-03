@@ -65,7 +65,7 @@ let render_width = 1080;
 let render_height = 1080;
 const GLSL_FLOAT_TYPES = ['float', 'vec2', 'vec3', 'vec4'];
 const GLSL_FLOAT_TYPE_PAIRS = GLSL_FLOAT_TYPES.flatMap((x) =>
-	GLSL_FLOAT_TYPES.map((y) => [x, y]),
+	GLSL_FLOAT_TYPES.map((y) => [x, y])
 );
 
 const builtin_widgets = [
@@ -80,7 +80,7 @@ const builtin_widgets = [
 			(type) => `
 ${type} buffer(${type} x) {
 	return x;
-}`,
+}`
 		).join('\n'),
 	`
 //! .name: Slider
@@ -119,7 +119,7 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 	if (c != 0) x = clamp(x, 0.0, 1.0);
 	return mix(a, b, x);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Last frame
@@ -163,7 +163,7 @@ vec3 last_frame(vec2 pos, int wrap, int samp) {
 ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 	return a * aw + b * bw;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Add
@@ -176,7 +176,7 @@ ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 ${type} add(${type} a, ${type} b) {
 	return a + b;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Subtract
@@ -189,7 +189,7 @@ ${type} add(${type} a, ${type} b) {
 ${type} sub(${type} a, ${type} b) {
 	return a - b;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Multiply
@@ -201,7 +201,7 @@ ${type} sub(${type} a, ${type} b) {
 ${type} mul(${type} a, ${type} b) {
 	return a * b;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Divide
@@ -213,7 +213,7 @@ ${type} mul(${type} a, ${type} b) {
 ${type} div(${type} a, ${type} b) {
 	return a / b;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Power
@@ -226,7 +226,7 @@ ${type} div(${type} a, ${type} b) {
 ${type} pow_(${type} a, ${type} b) {
 	return pow(a, b);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Modulo
@@ -241,7 +241,7 @@ ${type} pow_(${type} a, ${type} b) {
 ${type} mod_(${type} a, ${type} b) {
 	return mod(a, b);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Square
@@ -274,7 +274,7 @@ ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	${type} a = abs(pos) / size;
 	return ${max} < 1.0 ? inside : outside;
 }
-`,
+`
 					)
 					.join('\n');
 			})
@@ -299,7 +299,7 @@ ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	pos /= size;
 	return dot(pos, pos) < 1.0 ? inside : outside;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Comparator
@@ -323,7 +323,7 @@ ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 	return cmp1 < cmp2 ? less : greater;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Sine wave
@@ -367,7 +367,7 @@ ${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phas
 	if (nonneg != 0) v = v * 0.5 + 0.5;
 	return amp * v + center;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Rotate 2D
@@ -467,7 +467,7 @@ ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 	contrast = clamp(contrast, -1.0, 1.0);
 	return clamp((contrast + 1.0) / (1.0 - contrast) * (color - 0.5) + (brightness + 0.5), 0.0, 1.0);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Clamp
@@ -487,7 +487,7 @@ ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 	return clamp(x, minimum, maximum);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Rotate 3D
@@ -534,7 +534,7 @@ vec3 rot3(vec3 v, vec3 axis, float angle) {
 ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 	return (x - a1) / (b1 - a1) * (b2 - a2) + a2;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Smoothstep
@@ -561,7 +561,7 @@ ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) {
 	return mix(out1, out2, smoothstep(t1, t2, t));
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Arctangent
@@ -578,7 +578,7 @@ ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) 
 ${type} arctan2(${type} y, ${type} x) {
 	return atan(y, x);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Tangent
@@ -592,7 +592,7 @@ ${type} arctan2(${type} y, ${type} x) {
 ${type} tang(${type} x) {
 	return tan(x);
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Arcsine
@@ -606,7 +606,7 @@ ${type} tang(${type} x) {
 ${type} arcsin(${type} x) {
 	return asin(clamp(x, -1.0, 1.0));
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Sigmoid
@@ -624,7 +624,7 @@ ${type} arcsin(${type} x) {
 ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 	return mix(a, b, 1.0 / (1.0 + exp(-sharpness * x)));
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Staircase (floor)
@@ -644,7 +644,7 @@ ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 	return floor(x / stepw + phase) * steph;
 }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Sine noise
@@ -737,7 +737,7 @@ float norm(vec4 x) { return length(x); }
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
 float dist(${type} x, ${type} y) { return distance(x, y); }
-`,
+`
 		).join('\n'),
 	`
 //! .name: Dot product
@@ -749,7 +749,7 @@ float dist(${type} x, ${type} y) { return distance(x, y); }
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
 float dot_prod(${type} x, ${type} y) { return dot(x, y); }
-`,
+`
 		).join('\n'),
 	`
 //! .name: White noise
@@ -981,7 +981,7 @@ float worley(vec3 p, vec3 freq) {
 			(type) => `
 ${type} _min(${type} a, ${type} b) {
 	return min(a, b);
-}`,
+}`
 		).join('\n'),
 	`
 //! .name: Maximum
@@ -993,7 +993,7 @@ ${type} _min(${type} a, ${type} b) {
 			(type) => `
 ${type} _max(${type} a, ${type} b) {
 	return max(a, b);
-}`,
+}`
 		).join('\n'),
 ];
 
@@ -1280,14 +1280,14 @@ function parse_widget_definition(code) {
 				}
 				if (p.type !== expected_type) {
 					parser.set_error(
-						`parameter ${p.name} should have type ${expected_type} since it's a ${param.control}, but it has type ${p.type}`,
+						`parameter ${p.name} should have type ${expected_type} since it's a ${param.control}, but it has type ${p.type}`
 					);
 				}
 			}
 
 			if (!param.control && p.type === 'int') {
 				parser.set_error(
-					`parameter ${p.name} has type int, so you should set a control type for it, e.g. //! ${p.name}.control: checkbox`,
+					`parameter ${p.name} has type int, so you should set a control type for it, e.g. //! ${p.name}.control: checkbox`
 				);
 			}
 			if (!param.control) {
@@ -1298,7 +1298,7 @@ function parse_widget_definition(code) {
 		for (const param of params.values()) {
 			if (!input_types.has(param.id) && !param.control) {
 				parser.set_error(
-					`parameter ${param.id} not specified in definition of ${info.function_name}`,
+					`parameter ${param.id} not specified in definition of ${info.function_name}`
 				);
 			}
 		}
@@ -1314,7 +1314,7 @@ function parse_widget_definition(code) {
 		const definition_end = parser.i;
 		const definition = parser.string.substring(
 			definition_start,
-			definition_end,
+			definition_end
 		);
 		info.definitions.push({
 			input_types,
@@ -1539,7 +1539,7 @@ function get_widget_name(widget_div) {
 	const names = widget_div.getElementsByClassName('widget-name');
 	console.assert(
 		names.length === 1,
-		'there should be exactly one widget-name input per widget',
+		'there should be exactly one widget-name input per widget'
 	);
 	return names[0].innerText;
 }
@@ -1922,13 +1922,13 @@ ${this.code.join('')}
 			return input.length === 4 || input.length === 7
 				? {
 						code: `vec3(${float_glsl(color.r)},${float_glsl(
-							color.g,
+							color.g
 						)},${float_glsl(color.b)})`,
 						type: 'vec3',
 				  }
 				: {
 						code: `vec4(${float_glsl(color.r)},${float_glsl(
-							color.g,
+							color.g
 						)},${float_glsl(color.b)},${float_glsl(color.a)})`,
 						type: 'vec4',
 				  };
@@ -2093,9 +2093,7 @@ ${this.code.join('')}
 		const type = definition.return_type;
 		this.declarations.add(definition.code);
 		this.add_code(
-			`${type} ${output_var} = ${info.function_name}(${args_code.join(
-				',',
-			)});\n`,
+			`${type} ${output_var} = ${info.function_name}(${args_code.join(',')});\n`
 		);
 		widget.output = {
 			code: output_var,
@@ -2220,7 +2218,7 @@ function export_widgets() {
 	}
 	data.push('_out=');
 	data.push(
-		get_widget_name(document.querySelector('.widget[data-display="1"]')),
+		get_widget_name(document.querySelector('.widget[data-display="1"]'))
 	);
 	return data.join('');
 }
@@ -2300,7 +2298,7 @@ function import_widgets(string) {
 			element.value = value;
 		} else if (element.tagName === 'SELECT') {
 			const options = Array.from(element.getElementsByTagName('option')).map(
-				(o) => o.value,
+				(o) => o.value
 			);
 			if (value >= 0 && value < options.length) {
 				element.value = options[value];
@@ -2329,7 +2327,7 @@ function import_widgets(string) {
 
 		for (const [input, value] of widget.inputs) {
 			const container = Array.from(element.getElementsByClassName('in')).find(
-				(e) => e.dataset.id === input,
+				(e) => e.dataset.id === input
 			);
 			if (!container) {
 				return { error: `bad import string (input ${input} does not exist)` };
@@ -2338,7 +2336,7 @@ function import_widgets(string) {
 		}
 		for (const [control, value] of widget.controls) {
 			const container = Array.from(
-				element.getElementsByClassName('control'),
+				element.getElementsByClassName('control')
 			).find((e) => e.dataset.id === control);
 			if (!container) {
 				return {
@@ -2370,7 +2368,7 @@ function load_creation(id) {
 		return { error: `bad id: ${id}` };
 	}
 	const result = import_widgets(
-		localStorage.getItem(`${APP_ID}-${id}-description`),
+		localStorage.getItem(`${APP_ID}-${id}-description`)
 	);
 	if (result.error) return result;
 	return true;
@@ -2438,11 +2436,11 @@ function update_widget_choices() {
 		choice.style.display = shown ? 'block' : 'none';
 	}
 	for (const category of widget_choices.getElementsByClassName(
-		'widget-category',
+		'widget-category'
 	)) {
 		if (
 			Array.from(category.getElementsByClassName('widget-choice')).some(
-				(x) => x.style.display === 'block',
+				(x) => x.style.display === 'block'
 			)
 		) {
 			category.style.display = 'block';
@@ -2584,7 +2582,7 @@ void main() {
 		new Float32Array([
 			-1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
 		]),
-		gl.STATIC_DRAW,
+		gl.STATIC_DRAW
 	);
 
 	vertex_buffer_main = gl.createBuffer();
@@ -2594,7 +2592,7 @@ void main() {
 		new Float32Array([
 			-1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,
 		]),
-		gl.STATIC_DRAW,
+		gl.STATIC_DRAW
 	);
 
 	framebuffer_color_texture = gl.createTexture();
@@ -2623,7 +2621,7 @@ void main() {
 
 			const widgets = categories.get(cat);
 			widgets.sort((a, b) =>
-				widget_info.get(a).name.localeCompare(widget_info.get(b).name),
+				widget_info.get(a).name.localeCompare(widget_info.get(b).name)
 			);
 			for (const id of widgets) {
 				const widget = widget_info.get(id);
@@ -2761,17 +2759,17 @@ function perform_step() {
 	gl.uniform1i(gl.getUniformLocation(program_main, '_texture'), 0);
 	gl.uniform1f(
 		gl.getUniformLocation(program_main, '_time'),
-		current_time % 3600,
+		current_time % 3600
 	);
 	gl.uniform2f(
 		gl.getUniformLocation(program_main, '_texture_size'),
 		render_width,
-		render_height,
+		render_height
 	);
 	gl.uniform2f(
 		gl.getUniformLocation(program_main, '_mouse'),
 		mouse_pos_ndc.x,
-		mouse_pos_ndc.y,
+		mouse_pos_ndc.y
 	);
 
 	if (parsed_widgets) {
@@ -2806,7 +2804,7 @@ function perform_step() {
 		0,
 		render_width,
 		render_height,
-		0,
+		0
 	);
 }
 
@@ -2831,7 +2829,7 @@ function compile_program(name, shaders) {
 	gl.linkProgram(program);
 	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
 		show_error(
-			'Error linking shader program:\n' + gl.getProgramInfoLog(program),
+			'Error linking shader program:\n' + gl.getProgramInfoLog(program)
 		);
 		return null;
 	}
@@ -2845,13 +2843,13 @@ function set_up_framebuffer() {
 		sampler_texture,
 		render_width,
 		render_height,
-		sampler_pixels,
+		sampler_pixels
 	);
 	set_up_rgba_texture(
 		framebuffer_color_texture,
 		render_width,
 		render_height,
-		null,
+		null
 	);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 	gl.framebufferTexture2D(
@@ -2859,7 +2857,7 @@ function set_up_framebuffer() {
 		gl.COLOR_ATTACHMENT0,
 		gl.TEXTURE_2D,
 		framebuffer_color_texture,
-		0,
+		0
 	);
 	const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
 	if (status !== gl.FRAMEBUFFER_COMPLETE) {
@@ -2879,7 +2877,7 @@ function set_up_rgba_texture(texture, width, height, pixels) {
 		0,
 		gl.RGBA,
 		gl.UNSIGNED_BYTE,
-		pixels,
+		pixels
 	);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -2894,7 +2892,7 @@ function compile_shader(name, type, source) {
 
 	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
 		show_error(
-			'Error compiling shader ' + name + ':\n' + gl.getShaderInfoLog(shader),
+			'Error compiling shader ' + name + ':\n' + gl.getShaderInfoLog(shader)
 		);
 		return null;
 	}
