@@ -1,17 +1,15 @@
 {
-  "name": "fractiform",
+  "name": "pugl",
   "version": "1.0.0",
-  "description": "fractals",
-  "main": "fractiform.js",
+  "description": "shaders on the world wide web",
+  "main": "pugl.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "pommicket",
   "license": "WTFPL",
   "devDependencies": {
-    "eslint": "^8.45.0"
-  },
-  "dependencies": {
+    "eslint": "^8.45.0",
     "prettier": "^3.0.0"
   }
 }

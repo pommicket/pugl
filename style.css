@@ -6,15 +6,18 @@ body {
 	font-family: sans-serif;
 	padding: 0;
 }
+
 body,
 dialog {
 	background-color: black;
 	color: var(--color-text);
 }
+
 a,
 a:visited {
 	color: #8fc;
 }
+
 h1,
 h2,
 h3,
@@ -35,6 +38,10 @@ h6 {
 	display: flex;
 	flex-grow: 1;
 	overflow: hidden;
+}
+
+#creation-title {
+	width: 5em;
 }
 
 #error {

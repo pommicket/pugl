@@ -7,6 +7,26 @@ TODO:
 
 const APP_ID = 'dh3YgVZQdX1Q';
 
+function generate_creation_id() {
+	const parts = new Uint16Array(6);
+	crypto.getRandomValues(parts);
+	return Array.from(parts)
+		.map((x) => {
+			x = x.toString(16);
+			while (x.length < 4) x = '0' + x;
+			return x;
+		})
+		.join('-');
+}
+
+function parse_json(s) {
+	try {
+		return JSON.parse(s);
+	} catch (e) {
+		return undefined;
+	}
+}
+
 let gl;
 let program_main = null;
 let program_post = null;
@@ -34,6 +54,10 @@ let paused = false;
 let pause_element;
 let step_element;
 let play_element;
+let creation_metadata = {};
+let creation_id;
+let creation_title_element;
+let auto_update_element;
 
 const mouse_pos_ndc = Object.preventExtensions({ x: 0, y: 0 });
 
@@ -973,8 +997,12 @@ ${type} _max(${type} a, ${type} b) {
 		).join('\n'),
 ];
 
+function get_creation_title() {
+	return creation_title_element.value || 'Untitled';
+}
+
 function auto_update_enabled() {
-	return document.getElementById('auto-update').checked;
+	return auto_update_element.checked;
 }
 
 function set_paused(p) {
@@ -2166,7 +2194,7 @@ function export_widgets() {
 		return;
 	}
 	console.assert(widgets instanceof Map);
-	const data = [];
+	const data = ['_title=', get_creation_title(), ';;'];
 	for (const [name, widget] of widgets) {
 		data.push(widget.func);
 		data.push(';');
@@ -2200,11 +2228,15 @@ function export_widgets() {
 function import_widgets(string) {
 	let widgets = [];
 	let output = null;
+	let title = null;
 	if (string) {
-		console.log(string);
 		for (const widget_str of string.split(';;')) {
 			if (widget_str.startsWith('_out=')) {
 				output = widget_str.substring('_out='.length);
+				continue;
+			}
+			if (widget_str.startsWith('_title=')) {
+				title = widget_str.substring('_title='.length);
 				continue;
 			}
 
@@ -2255,6 +2287,8 @@ function import_widgets(string) {
 		];
 		output = 'output';
 	}
+
+	creation_title_element.value = title || 'Untitled';
 
 	function assign_value(container, value) {
 		const element = container.getElementsByClassName('entry')[0];
@@ -2316,19 +2350,35 @@ function import_widgets(string) {
 	}
 
 	set_display_output_and_update_shader(get_widget_by_name(output));
-}
-
-function import_widgets_from_local_storage() {
-	const result = import_widgets(localStorage.getItem(`${APP_ID}-widgets`));
-	if (result && result.error) {
-		show_error(result);
-	}
+	return true;
 }
 
 function export_widgets_to_local_storage() {
 	const widget_str = export_widgets();
 	code_input.value = widget_str;
-	localStorage.setItem(`${APP_ID}-widgets`, widget_str);
+	localStorage.setItem(`${APP_ID}-${creation_id}-description`, widget_str);
+	creation_metadata[creation_id] = {
+		lastViewed: Date.now(),
+	};
+	localStorage.setItem(`${APP_ID}-metadata`, JSON.stringify(creation_metadata));
+}
+
+function load_creation(id) {
+	creation_id = id;
+	const metadata = creation_metadata[id];
+	if (!metadata) {
+		return { error: `bad id: ${id}` };
+	}
+	const result = import_widgets(
+		localStorage.getItem(`${APP_ID}-${id}-description`),
+	);
+	if (result.error) return result;
+	return true;
+}
+
+function new_creation() {
+	creation_id = generate_creation_id();
+	return import_widgets(null);
 }
 
 function get_shader_source() {
@@ -2373,7 +2423,6 @@ function get_shader_source() {
 	}
 
 	const code = state.get_code();
-	console.log(code);
 	export_widgets_to_local_storage();
 	return code;
 }
@@ -2417,6 +2466,9 @@ function startup() {
 	widgets_container = document.getElementById('widgets-container');
 	code_input = document.getElementById('code');
 	error_element = document.getElementById('error');
+	creation_title_element = document.getElementById('creation-title');
+	auto_update_element = document.getElementById('auto-update');
+
 	const resolution_x_element = document.getElementById('resolution-x');
 	const resolution_y_element = document.getElementById('resolution-y');
 
@@ -2482,6 +2534,10 @@ function startup() {
 
 	document.getElementById('restart').addEventListener('click', () => {
 		restart();
+	});
+
+	creation_title_element.addEventListener('change', () => {
+		if (!has_error()) export_widgets_to_local_storage();
 	});
 
 	gl = canvas.getContext('webgl2');
@@ -2598,7 +2654,28 @@ void main() {
 	widget_search.addEventListener('input', () => {
 		update_widget_choices();
 	});
-	import_widgets_from_local_storage();
+
+	creation_metadata = parse_json(localStorage.getItem(`${APP_ID}-metadata`));
+	let result;
+	if (creation_metadata) {
+		// load creation with largest lastViewed time
+		let load = undefined;
+		for (const id in creation_metadata) {
+			if (
+				!load ||
+				creation_metadata[id].lastViewed > creation_metadata[load].lastViewed
+			) {
+				load = id;
+			}
+		}
+		result = load_creation(load);
+	} else {
+		creation_metadata = {};
+		result = new_creation();
+	}
+	if (result.error) {
+		show_error(result);
+	}
 
 	frame(0.0);
 
@@ -2822,6 +2899,10 @@ function compile_shader(name, type, source) {
 		return null;
 	}
 	return shader;
+}
+
+function has_error() {
+	return error_element.style.display !== 'none';
 }
 
 function clear_error() {
