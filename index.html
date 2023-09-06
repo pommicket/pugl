@@ -20,12 +20,23 @@
 <div id="page">
 	<div id="main">
 		<div id="ui">
-			<div id="title">
-				<img src="icon.png" alt="" id="title-icon"> pugl
+			<div id="top-area">
+				<img src="icon.png" alt="" id="title-icon"> <span id="title">pugl</span>
 				<input placeholder="Title" id="creation-title">
-				<button id="about-button" class="img-button" title="about pugl">
-					<img alt="about" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+CjxlbGxpcHNlIGN4PSIxNiIgY3k9IjE2IiByeD0iMTIiIHJ5PSIxMiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIGZpbGw9Im5vbmUiIC8+Cjx0ZXh0IGZpbGw9IiNmZmYiIHg9IjE2IiB5PSIyNCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwcHgiIHRleHQtYW5jaG9yPSJtaWRkbGUiPj88L3RleHQ+Cjwvc3ZnPgo=">
-				</button>
+				<div id="creation-buttons">
+					<button id="list-creations" class="img-button" title="list creations">
+						<img alt="list creations" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHBhdGggZD0iTTYgNyBMMjYgNyBNNiAxNiBMMjYgMTYgTTYgMjUgTDI2IDI1IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+">
+					</button>
+					<button id="about-button" class="img-button" title="about pugl">
+						<img alt="about" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PGVsbGlwc2UgY3g9IjE2IiBjeT0iMTYiIHJ4PSIxMiIgcnk9IjEyIiBzdHJva2U9IiNmOGYiIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIgLz48dGV4dCBmaWxsPSIjZjhmIiB4PSIxNiIgeT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyMHB4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4/PC90ZXh0Pjwvc3ZnPg==">
+					</button>
+					<button id="new-creation" class="img-button" title="new creation">
+						<img alt="new creation" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHBhdGggZD0iTTE2IDYgTDE2IDI2IE02IDE2IEwyNiAxNiIgc3Ryb2tlPSIjOGY4IiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==">
+					</button>
+					<button id="delete-creation" class="img-button" title="delete creation">
+						<img alt="delete creation" src="x.svg">
+					</button>
+				</div>
 			</div>
 			<form action="#" method="dialog" id="code-form" class="ui-section inline-block">
 				<input type="text" placeholder="Code" id="code">
@@ -99,6 +110,23 @@
 		</p>
 		<form method="dialog">
 			<button>close</button>
+		</form>
+	</dialog>
+	<dialog id="creations-dialog">
+		<h3>saved creations</h3>
+		<hr>
+		<div id="creations"></div>
+		<br>
+		<form method="dialog">
+			<button>close</button>
+		</form>
+	</dialog>
+	<dialog id="delete-dialog">
+		<h3>delete creation "<span id="delete-creation-title"></span>"?</h3>
+		<br>
+		<form method="dialog">
+			<button>no</button>
+			<button id="delete-creation-confirm">yes</button>
 		</form>
 	</dialog>
 </div>

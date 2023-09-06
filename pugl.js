@@ -1,10 +1,5 @@
 'use strict';
 
-/*
-TODO:
-- multiple creations
-*/
-
 const APP_ID = 'dh3YgVZQdX1Q';
 
 function generate_creation_id() {
@@ -2357,6 +2352,7 @@ function export_widgets_to_local_storage() {
 	localStorage.setItem(`${APP_ID}-${creation_id}-description`, widget_str);
 	creation_metadata[creation_id] = {
 		lastViewed: Date.now(),
+		title: get_creation_title(),
 	};
 	localStorage.setItem(`${APP_ID}-metadata`, JSON.stringify(creation_metadata));
 }
@@ -2370,13 +2366,37 @@ function load_creation(id) {
 	const result = import_widgets(
 		localStorage.getItem(`${APP_ID}-${id}-description`)
 	);
-	if (result.error) return result;
-	return true;
+	if (result.error) {
+		show_error(result.error);
+	}
 }
 
 function new_creation() {
 	creation_id = generate_creation_id();
-	return import_widgets(null);
+	const result = import_widgets(null);
+	if (result.error) {
+		show_error(result.error);
+	}
+}
+
+function load_most_recent_or_create_new() {
+	let load = undefined;
+	if (creation_metadata) {
+		// load creation with largest lastViewed time
+		for (const id in creation_metadata) {
+			if (
+				!load ||
+				creation_metadata[id].lastViewed > creation_metadata[load].lastViewed
+			) {
+				load = id;
+			}
+		}
+	}
+	if (load) {
+		load_creation(load);
+	} else {
+		new_creation();
+	}
 }
 
 function get_shader_source() {
@@ -2499,6 +2519,58 @@ function startup() {
 
 	document.getElementById('about-button').addEventListener('click', () => {
 		document.getElementById('about-dialog').showModal();
+	});
+
+	document.getElementById('list-creations').addEventListener('click', () => {
+		const container = document.getElementById('creations');
+		container.innerHTML = '';
+		const creations_dialog = document.getElementById('creations-dialog');
+		creations_dialog.showModal();
+		for (const id in creation_metadata) {
+			const metadata = creation_metadata[id];
+			const entry = document.createElement('div');
+			entry.classList.add('creation-entry');
+			const title = document.createElement('h4');
+			title.classList.add('creation-entry-title');
+			title.appendChild(document.createTextNode(metadata.title));
+			entry.appendChild(title);
+			const lastViewed = document.createElement('div');
+			lastViewed.classList.add('creation-entry-last-viewed');
+			lastViewed.appendChild(
+				document.createTextNode(
+					'Last viewed: ' + new Date(metadata.lastViewed).toLocaleString()
+				)
+			);
+			entry.appendChild(lastViewed);
+			entry.addEventListener('click', () => {
+				load_creation(id);
+				creations_dialog.close();
+			});
+			container.appendChild(entry);
+		}
+	});
+
+	document.getElementById('delete-creation').addEventListener('click', () => {
+		document.getElementById('delete-creation-title').innerText =
+			get_creation_title();
+		document.getElementById('delete-dialog').showModal();
+	});
+
+	document
+		.getElementById('delete-creation-confirm')
+		.addEventListener('click', () => {
+			delete creation_metadata[creation_id];
+			localStorage.removeItem(`${APP_ID}-${creation_id}-description`);
+			localStorage.setItem(
+				`${APP_ID}-metadata`,
+				JSON.stringify(creation_metadata)
+			);
+			creation_id = undefined;
+			load_most_recent_or_create_new();
+		});
+
+	document.getElementById('new-creation').addEventListener('click', () => {
+		new_creation();
 	});
 
 	document.getElementById('resolution-form').addEventListener('submit', () => {
@@ -2654,26 +2726,7 @@ void main() {
 	});
 
 	creation_metadata = parse_json(localStorage.getItem(`${APP_ID}-metadata`));
-	let result;
-	if (creation_metadata) {
-		// load creation with largest lastViewed time
-		let load = undefined;
-		for (const id in creation_metadata) {
-			if (
-				!load ||
-				creation_metadata[id].lastViewed > creation_metadata[load].lastViewed
-			) {
-				load = id;
-			}
-		}
-		result = load_creation(load);
-	} else {
-		creation_metadata = {};
-		result = new_creation();
-	}
-	if (result.error) {
-		show_error(result);
-	}
+	load_most_recent_or_create_new();
 
 	frame(0.0);
 

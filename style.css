@@ -1,5 +1,6 @@
 :root {
 	--color-text: #ddd;
+	--color-link: #8fc;
 }
 
 body {
@@ -15,7 +16,7 @@ dialog {
 
 a,
 a:visited {
-	color: #8fc;
+	color: var(--color-link);
 }
 
 h1,
@@ -219,13 +220,16 @@ input[type='checkbox'] {
 summary {
 	cursor: pointer;
 }
-#title {
+#top-area {
 	vertical-align: middle;
 	font-weight: bold;
 	font-size: 0.5cm;
 }
 #title-icon {
 	height: 1cm;
+}
+#creation-buttons {
+	margin-top: 0.2em;
 }
 #resolution-form input[type='number'] {
 	width: 4em;
@@ -325,4 +329,22 @@ th {
 	border: 2px solid var(--color-text);
 	margin: 0;
 	padding: 0.2em;
+}
+
+.creation-entry {
+	cursor: pointer;
+	border-bottom: 2px solid white;
+	padding: 6px;
+}
+
+.creation-entry:hover {
+	background: #fff4;
+}
+
+.creation-entry-title {
+	color: var(--color-link);
+}
+
+.creation-entry-last-viewed {
+	font-style: italic;
 }
