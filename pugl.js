@@ -2391,7 +2391,10 @@ function load_most_recent_or_create_new() {
 				load = id;
 			}
 		}
+	} else {
+		creation_metadata = {};
 	}
+
 	if (load) {
 		load_creation(load);
 	} else {
