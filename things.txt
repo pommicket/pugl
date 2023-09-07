@@ -12,4 +12,4 @@ noisy:
 buffer;n:output;iinput:sn1,sn2,sn3;;rot2;n:rot21;iv:.pos;itheta:mul1.w;cdir:0;;circle;n:circle1;ipos:.pos;iinside:rot21,0;ioutside:#000;isize:0.8;;noise_sin;n:sn1;ix:rot21.xy,mul1.x;;remap;n:remap1;ix:.pos;ia1:-1;ib1:1;ia2:0;ib2:6.28;;noise_sin;n:sn2;ix:rot21.xy,mul1.y;;noise_sin;n:sn3;ix:rot21.xy,mul1.z;;mul;n:mul1;ia:.time;ib:0.2,0.4,0.6,0.1;;prev;n:prev1;ipos:.pos;cwrap:0;csample:0;;_out=output
 
 simple cross product:
-_title=cross;;cross;n:cross1;ix:.pos.xy,1;iy:0.2,.pos.xy;;_out=cross1
+s.pommicket.com/pugl/index.html?import=_title%3Dcross%3B%3Bcross%3Bn%3Across1%3Bix%3A.pos.xy%2C1%3Biy%3A0.2%2C.pos.xy%3B%3B_out%3Dcross1

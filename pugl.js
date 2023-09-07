@@ -42,7 +42,6 @@ let next_widget_id = 1;
 let widget_choices;
 let widget_search;
 let widgets_container;
-let code_input;
 let error_element;
 let parsed_widgets;
 let paused = false;
@@ -2548,7 +2547,6 @@ function import_widgets(string) {
 
 function export_widgets_to_local_storage() {
 	const widget_str = export_widgets();
-	code_input.value = widget_str;
 	// re-read metadata so that having multiple tabs with pugl open isn't an issue
 	const new_metadata = JSON.parse(localStorage.getItem(`${APP_ID}-metadata`));
 	creation_metadata = new_metadata || {};
@@ -2688,7 +2686,6 @@ function startup() {
 	widget_choices = document.getElementById('widget-choices');
 	widget_search = document.getElementById('widget-search');
 	widgets_container = document.getElementById('widgets-container');
-	code_input = document.getElementById('code');
 	error_element = document.getElementById('error');
 	creation_title_element = document.getElementById('creation-title');
 	auto_update_element = document.getElementById('auto-update');
@@ -2777,7 +2774,7 @@ function startup() {
 
 	document.getElementById('link-creation').addEventListener('click', () => {
 		// copy link
-		const string = code_input.value;
+		const string = export_widgets();
 		const url = new URL(location.href);
 		url.search = '';
 		url.hash = '';
@@ -2796,10 +2793,6 @@ function startup() {
 		render_width = resolution_x_element.value;
 		render_height = resolution_y_element.value;
 		set_up_framebuffer();
-	});
-
-	document.getElementById('code-form').addEventListener('submit', () => {
-		new_creation(code_input.value);
 	});
 
 	pause_element = document.getElementById('pause');
