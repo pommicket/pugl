@@ -2822,10 +2822,16 @@ function startup() {
 		if (!has_error()) export_widgets_to_local_storage();
 	});
 
-	gl = canvas.getContext('webgl2');
+	const context_attributes = {
+		// without this, "save image as..." is broken on firefox
+		//  see https://bugzilla.mozilla.org/show_bug.cgi?id=749824
+		preserveDrawingBuffer: true,
+	};
+
+	gl = canvas.getContext('webgl2', context_attributes);
 	if (gl === null) {
 		// support for very-old-but-not-ancient browsers
-		gl = canvas.getContext('experimental-webgl2');
+		gl = canvas.getContext('experimental-webgl2', context_attributes);
 		if (gl === null) {
 			show_error('your browser doesnt support webgl2.\noh well.');
 			return;
