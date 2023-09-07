@@ -1,4 +1,5 @@
 index.html
+introduction.html
 widget-inputs.html
 development: development
 /index.html

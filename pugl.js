@@ -76,7 +76,7 @@ const builtin_widgets = [
 ${type} buffer(${type} x) {
 	return x;
 }`
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Slider
 //! .category: basic
@@ -94,7 +94,8 @@ float slider(float x, float min_val, float max_val) {
 }
 `,
 	`
-//! .name: Mix (lerp)
+//! .name: Mix
+//! .alt: lerp
 //! .category: basic
 //! .id: mix
 //! .description: weighted average of two inputs
@@ -115,7 +116,7 @@ ${type} mix_(${type} a, ${type} b, ${type} x, int c) {
 	return mix(a, b, x);
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Last frame
 //! .category: basic
@@ -145,7 +146,7 @@ vec3 last_frame(vec2 pos, int wrap, int samp) {
 	`
 //! .name: Weighted sum
 //! .alt: weighted add
-//! .category: math
+//! .category: arithmetic
 //! .description: add two numbers or vectors with weights
 //! aw.name: a weight
 //! aw.default: 1
@@ -159,10 +160,10 @@ ${type} wtadd(${type} a, float aw, ${type} b, float bw) {
 	return a * aw + b * bw;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Add
-//! .category: math
+//! .category: arithmetic
 //! .description: add two numbers or vectors
 
 ` +
@@ -172,10 +173,10 @@ ${type} add(${type} a, ${type} b) {
 	return a + b;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Subtract
-//! .category: math
+//! .category: arithmetic
 //! .description: subtract one number or vector from another
 
 ` +
@@ -185,10 +186,10 @@ ${type} sub(${type} a, ${type} b) {
 	return a - b;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Multiply
-//! .category: math
+//! .category: arithmetic
 //! .description: multiply two numbers, scale a vector by a number, or perform component-wise multiplication between vectors
 ` +
 		GLSL_FLOAT_TYPES.map(
@@ -197,10 +198,10 @@ ${type} mul(${type} a, ${type} b) {
 	return a * b;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Divide
-//! .category: math
+//! .category: arithmetic
 //! .description: divide one number or vector by another
 ` +
 		GLSL_FLOAT_TYPES.map(
@@ -209,12 +210,14 @@ ${type} div(${type} a, ${type} b) {
 	return a / b;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Power
-//! .category: math
+//! .category: arithmetic
 //! .id: pow
 //! .description: take one number to the power of another
+//! a.id: a
+//! b.default: 0.5
 ` +
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
@@ -222,10 +225,10 @@ ${type} pow_(${type} a, ${type} b) {
 	return pow(a, b);
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Modulo
-//! .category: math
+//! .category: arithmetic
 //! .id: mod
 //! .description: wrap a value at a certain limit
 //! a.name: a
@@ -237,7 +240,7 @@ ${type} mod_(${type} a, ${type} b) {
 	return mod(a, b);
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Square
 //! .category: geometry
@@ -271,9 +274,9 @@ ${type2} square(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 }
 `
 					)
-					.join('\n');
+					.join('');
 			})
-			.join('\n'),
+			.join(''),
 	`
 //! .name: Circle
 //! .category: geometry
@@ -295,7 +298,7 @@ ${type2} circle(${type} pos, ${type2} inside, ${type2} outside, ${type} size) {
 	return dot(pos, pos) < 1.0 ? inside : outside;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Comparator
 //! .category: basic
@@ -319,7 +322,7 @@ ${type} compare(float cmp1, float cmp2, ${type} less, ${type} greater) {
 	return cmp1 < cmp2 ? less : greater;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Sine wave
 //! .category: curves
@@ -363,7 +366,7 @@ ${type} sine_wave(int type, ${type} t, ${type} period, ${type} amp, ${type} phas
 	return amp * v + center;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Rotate 2D
 //! .category: geometry
@@ -463,7 +466,7 @@ ${type} brightcont(${type} color, ${type} brightness, ${type} contrast) {
 	return clamp((contrast + 1.0) / (1.0 - contrast) * (color - 0.5) + (brightness + 0.5), 0.0, 1.0);
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Clamp
 //! .category: basic
@@ -483,7 +486,7 @@ ${type} clamp_(${type} x, ${type} minimum, ${type} maximum) {
 	return clamp(x, minimum, maximum);
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Rotate 3D
 //! .id: rot3
@@ -530,7 +533,7 @@ ${type} remap(${type} x, ${type} a1, ${type} b1, ${type} a2, ${type} b2) {
 	return (x - a1) / (b1 - a1) * (b2 - a2) + a2;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Smoothstep
 //! .id: smoothstep
@@ -557,11 +560,11 @@ ${type} smoothst(${type} t, ${type} t1, ${type} t2, ${type} out1, ${type} out2) 
 	return mix(out1, out2, smoothstep(t1, t2, t));
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Arctangent
 //! .id: arctan2
-//! .category: math
+//! .category: trigonometry
 //! .description: The arctangent function (radians) with 2 parameters (set x = 1 for normal arctangent)
 //! y.id: y
 //! x.id: x
@@ -574,25 +577,53 @@ ${type} arctan2(${type} y, ${type} x) {
 	return atan(y, x);
 }
 `
-		).join('\n'),
+		).join(''),
+	`
+//! .name: Cosine
+//! .id: cos
+//! .category: trigonometry
+//! .description: The cosine function (radians)
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} cos_(${type} x) {
+	return cos(x);
+}
+`
+		).join(''),
+	`
+//! .name: Sine
+//! .id: sine
+//! .category: trigonometry
+//! .description: The sine function (radians)
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} sin_(${type} x) {
+	return sin(x);
+}
+`
+		).join(''),
 	`
 //! .name: Tangent
 //! .id: tan
-//! .category: math
+//! .category: trigonometry
 //! .description: The tangent function (radians)
 
 ` +
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
-${type} tang(${type} x) {
+${type} tan_(${type} x) {
 	return tan(x);
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Arcsine
 //! .id: arcsin
-//! .category: math
+//! .category: trigonometry
 //! .description: The arcsine function (radians) — input will be clamped to [−1, 1]
 
 ` +
@@ -602,7 +633,114 @@ ${type} arcsin(${type} x) {
 	return asin(clamp(x, -1.0, 1.0));
 }
 `
-		).join('\n'),
+		).join(''),
+	`
+//! .name: Arccosine
+//! .id: arccos
+//! .category: trigonometry
+//! .description: The arccosine function (radians) — input will be clamped to [−1, 1]
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} arccos(${type} x) {
+	return acos(clamp(x, -1.0, 1.0));
+}
+`
+		).join(''),
+	`
+//! .name: Hyperbolic cosine
+//! .alt: cosh
+//! .id: cosh
+//! .category: trigonometry
+//! .description: The hyperbolic cosine function
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} cosh_(${type} x) {
+	return cosh(x);
+}
+`
+		).join(''),
+	`
+//! .name: Hyperbolic sine
+//! .alt: sinh
+//! .id: sinh
+//! .category: trigonometry
+//! .description: The hyperbolic sine function
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} sinh_(${type} x) {
+	return sinh(x);
+}
+`
+		).join(''),
+	`
+//! .name: Hyperbolic tangent
+//! .alt: tanh
+//! .id: tanh
+//! .category: trigonometry
+//! .description: The hyperbolic tangent function (radians)
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} tanh_(${type} x) {
+	return tanh(x);
+}
+`
+		).join(''),
+	`
+//! .name: Hyperbolic arccosine
+//! .alt: acosh
+//! .alt: arccosh
+//! .id: arccosh
+//! .category: trigonometry
+//! .description: The hyperbolic arccosine function (radians) — input will be clamped to [1, ∞]
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} arccosh(${type} x) {
+	return acosh(max(x, 1.0));
+}
+`
+		).join(''),
+	`
+//! .name: Hyperbolic arcsine
+//! .alt: asinh
+//! .alt: arcsinh
+//! .id: arcsinh
+//! .category: trigonometry
+//! .description: The hyperbolic arcsine function (radians)
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} arcsinh(${type} x) {
+	return asinh(x);
+}
+`
+		).join(''),
+	`
+//! .name: Hyperbolic arctangent
+//! .alt: atanh
+//! .alt: arctanh
+//! .id: arctanh
+//! .category: trigonometry
+//! .description: The hyperbolic arctangent function (radians) — input will be clamped to [-1, 1]
+
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} arctanh(${type} x) {
+	return atanh(clamp(x, -1.0, 1.0));
+}
+`
+		).join(''),
 	`
 //! .name: Sigmoid
 //! .id: sigmoid
@@ -620,9 +758,9 @@ ${type} sigmoid(${type} x, ${type} a, ${type} b, ${type} sharpness) {
 	return mix(a, b, 1.0 / (1.0 + exp(-sharpness * x)));
 }
 `
-		).join('\n'),
+		).join(''),
 	`
-//! .name: Staircase (floor)
+//! .name: Staircase
 //! .id: floor
 //! .category: curves
 //! .description: The floor function — largest integer less than x
@@ -640,7 +778,7 @@ ${type} floorf(${type} x, ${type} stepw, ${type} steph, ${type} phase) {
 	return floor(x / stepw + phase) * steph;
 }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Sine noise
 //! .category: noise
@@ -733,7 +871,7 @@ float norm(vec4 x) { return length(x); }
 			(type) => `
 float dist(${type} x, ${type} y) { return distance(x, y); }
 `
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Dot product
 //! .description: the dot product between two vectors
@@ -745,7 +883,17 @@ float dist(${type} x, ${type} y) { return distance(x, y); }
 			(type) => `
 float dot_prod(${type} x, ${type} y) { return dot(x, y); }
 `
-		).join('\n'),
+		).join(''),
+	`
+//! .name: Cross product
+//! .description: the cross product between two 3D vectors
+//! .category: geometry
+//! .id: cross
+
+vec3 cross_(vec3 x, vec3 y) {
+	return cross(x, y);
+}
+`,
 	`
 //! .name: White noise
 //! .description: Uniform distribution over [0, 1)
@@ -969,27 +1117,75 @@ float worley(vec3 p, vec3 freq) {
 	`
 //! .name: Minimum
 //! .description: minimum of two values
-//! .category: math
+//! .category: basic
 //! .id: min
 ` +
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
-${type} _min(${type} a, ${type} b) {
+${type} min_(${type} a, ${type} b) {
 	return min(a, b);
 }`
-		).join('\n'),
+		).join(''),
 	`
 //! .name: Maximum
 //! .description: maximum of two values
-//! .category: math
+//! .category: basic
 //! .id: max
 ` +
 		GLSL_FLOAT_TYPES.map(
 			(type) => `
-${type} _max(${type} a, ${type} b) {
+${type} max_(${type} a, ${type} b) {
 	return max(a, b);
 }`
-		).join('\n'),
+		).join(''),
+	`
+//! .name: Absolute value
+//! .id: abs
+//! .description: absolute value of number
+//! .category: basic
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} abs_(${type} x) {
+	return abs(x);
+}`
+		).join(''),
+	`
+//! .name: Floor
+//! .id: floor_
+//! .description: the floor function — greatest integer smaller than x
+//! .category: basic
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} floor_(${type} x) {
+	return floor(x);
+}`
+		).join(''),
+	`
+//! .name: Ceiling
+//! .id: ceil
+//! .description: the ceiling function — smallest integer greater than x
+//! .category: basic
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} ceil_(${type} x) {
+	return ceil(x);
+}`
+		).join(''),
+	`
+//! .name: Round
+//! .id: round
+//! .description: round to nearest integer
+//! .category: basic
+` +
+		GLSL_FLOAT_TYPES.map(
+			(type) => `
+${type} round_(${type} x) {
+	return round(x);
+}`
+		).join(''),
 ];
 
 function get_creation_title() {
@@ -1334,6 +1530,8 @@ for (const code of builtin_widgets) {
 	const result = parse_widget_definition(code);
 	if (result && result.error) {
 		console.error(result.error);
+	} else if (widget_info.has(result.id)) {
+		console.error('duplicate widget id', result.id);
 	} else {
 		widget_info.set(result.id, result);
 	}
@@ -1952,6 +2150,8 @@ ${this.code.join('')}
 				case '.2π':
 				case '.2pi':
 					return { code: '(6.2831853)', type: 'float' };
+				case '.e':
+					return { code: '(2.7182818)', type: 'float' };
 				default:
 					return { error: `no such builtin: ${input}` };
 			}
@@ -2523,10 +2723,6 @@ function startup() {
 		}
 	});
 
-	document.getElementById('about-button').addEventListener('click', () => {
-		document.getElementById('about-dialog').showModal();
-	});
-
 	document.getElementById('list-creations').addEventListener('click', () => {
 		const container = document.getElementById('creations');
 		container.innerHTML = '';
@@ -2603,7 +2799,7 @@ function startup() {
 	});
 
 	document.getElementById('code-form').addEventListener('submit', () => {
-		import_widgets(code_input.value);
+		new_creation(code_input.value);
 	});
 
 	pause_element = document.getElementById('pause');

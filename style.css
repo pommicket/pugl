@@ -338,6 +338,9 @@ input[type='number'] {
 .inline-block {
 	display: inline-block;
 }
+.no-text-decoration {
+	text-decoration: none;
+}
 .no-wrap {
 	whitespace: no-wrap;
 }
