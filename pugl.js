@@ -2350,7 +2350,8 @@ function export_widgets_to_local_storage() {
 	const widget_str = export_widgets();
 	code_input.value = widget_str;
 	// re-read metadata so that having multiple tabs with pugl open isn't an issue
-	creation_metadata = JSON.parse(localStorage.getItem(`${APP_ID}-metadata`));
+	const new_metadata = JSON.parse(localStorage.getItem(`${APP_ID}-metadata`));
+	creation_metadata = new_metadata || {};
 	localStorage.setItem(`${APP_ID}-${creation_id}-description`, widget_str);
 	creation_metadata[creation_id] = {
 		lastViewed: Date.now(),
