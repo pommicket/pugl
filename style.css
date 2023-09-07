@@ -1,6 +1,7 @@
 :root {
 	--color-text: #ddd;
 	--color-link: #8fc;
+	--color-bg: #000;
 }
 
 body {
@@ -10,7 +11,7 @@ body {
 
 body,
 dialog {
-	background-color: black;
+	background-color: var(--color-bg);
 	color: var(--color-text);
 }
 
@@ -223,13 +224,41 @@ summary {
 #top-area {
 	vertical-align: middle;
 	font-weight: bold;
-	font-size: 0.5cm;
+	font-size: 1.2em;
 }
 #title-icon {
-	height: 1cm;
+	height: 1.5em;
 }
 #creation-buttons {
 	margin-top: 0.2em;
+}
+#link-creation {
+	position: relative;
+}
+
+@keyframes copied-notice-animation {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+		visibility: hidden;
+	}
+}
+
+#link-creation #copied-notice {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 7em;
+	color: #0f0;
+	border: 1px solid #0f0;
+	pointer-events: none;
+	padding: 3px;
+	background: var(--color-bg);
+	visibility: hidden;
+	animation-duration: 3s;
+	animation-fill-mode: forwards;
 }
 #resolution-form input[type='number'] {
 	width: 4em;

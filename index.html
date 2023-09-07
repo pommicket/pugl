@@ -7,8 +7,8 @@
 	<meta content="width=device-width,initial-scale=1" name="viewport">
 	<script>
 	// make sure we have the right base for URLs
-	if (!location.href.endsWith('.html') && !location.href.endsWith('/')) {
-		location.href = location.href + '/';
+	if (!location.pathname.endsWith('.html') && !location.pathname.endsWith('/')) {
+		location.pathname = location.pathname + '/';
 	}
 	</script>
 	<link rel="icon" href="favicon.ico">
@@ -32,6 +32,10 @@
 				<div id="creation-buttons">
 					<button id="list-creations" class="img-button" title="list creations">
 						<img alt="list creations" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHBhdGggZD0iTTYgNyBMMjYgNyBNNiAxNiBMMjYgMTYgTTYgMjUgTDI2IDI1IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+">
+					</button>
+					<button id="link-creation" class="img-button" title="copy link to creation">
+						<img alt="copy link" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PHJlY3QgeD0iNiIgeT0iNCIgd2lkdGg9IjE0IiBoZWlnaHQ9IjIwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIgcng9IjIiIGZpbGw9Im5vbmUiLz48cmVjdCB4PSIxMSIgeT0iOCIgd2lkdGg9IjE0IiBoZWlnaHQ9IjIwIiBzdHJva2U9IiNmZmYiIGNsaXAtcGF0aD0icGF0aCgnTSAyMCAwIGwgMCAyNCBsIC0xNCAwIGwgMCAxMDAgbCAxMDAgMCBMIDEwMCAwIHonKSIgc3Ryb2tlLXdpZHRoPSIzIiByeD0iMiIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==">
+						<span id="copied-notice">Copied link!</span>
 					</button>
 					<button id="about-button" class="img-button" title="about pugl">
 						<img alt="about" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiI+PGVsbGlwc2UgY3g9IjE2IiBjeT0iMTYiIHJ4PSIxMiIgcnk9IjEyIiBzdHJva2U9IiNmOGYiIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIgLz48dGV4dCBmaWxsPSIjZjhmIiB4PSIxNiIgeT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyMHB4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4/PC90ZXh0Pjwvc3ZnPg==">
@@ -131,8 +135,8 @@
 		<h3>delete creation "<span id="delete-creation-title"></span>"?</h3>
 		<br>
 		<form method="dialog">
-			<button>no</button>
 			<button id="delete-creation-confirm">yes</button>
+			<button>no</button>
 		</form>
 	</dialog>
 </div>

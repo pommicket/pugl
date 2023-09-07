@@ -2349,6 +2349,8 @@ function import_widgets(string) {
 function export_widgets_to_local_storage() {
 	const widget_str = export_widgets();
 	code_input.value = widget_str;
+	// re-read metadata so that having multiple tabs with pugl open isn't an issue
+	creation_metadata = JSON.parse(localStorage.getItem(`${APP_ID}-metadata`));
 	localStorage.setItem(`${APP_ID}-${creation_id}-description`, widget_str);
 	creation_metadata[creation_id] = {
 		lastViewed: Date.now(),
@@ -2371,9 +2373,9 @@ function load_creation(id) {
 	}
 }
 
-function new_creation() {
+function new_creation(string) {
 	creation_id = generate_creation_id();
-	const result = import_widgets(null);
+	const result = import_widgets(string);
 	if (result.error) {
 		show_error(result.error);
 	}
@@ -2576,6 +2578,23 @@ function startup() {
 		new_creation();
 	});
 
+	document.getElementById('link-creation').addEventListener('click', () => {
+		// copy link
+		const string = code_input.value;
+		const url = new URL(location.href);
+		url.search = '';
+		url.hash = '';
+		url.searchParams.set('import', string);
+		navigator.clipboard.writeText(url.toString()).then(() => {
+			// display "Copied!" notice
+			const copied = document.getElementById('copied-notice');
+			copied.style.visibility = 'visible';
+			copied.style.animationName = '';
+			copied.offsetWidth; // force reflow to restart animation
+			copied.style.animationName = 'copied-notice-animation';
+		});
+	});
+
 	document.getElementById('resolution-form').addEventListener('submit', () => {
 		render_width = resolution_x_element.value;
 		render_height = resolution_y_element.value;
@@ -2729,7 +2748,16 @@ void main() {
 	});
 
 	creation_metadata = parse_json(localStorage.getItem(`${APP_ID}-metadata`));
-	load_most_recent_or_create_new();
+	const url = new URL(location.href);
+	const import_string = url.searchParams.get('import');
+	if (import_string) {
+		// import from URL parameter
+		new_creation(import_string);
+		url.searchParams.delete('import');
+		history.replaceState(null, '', url.toString());
+	} else {
+		load_most_recent_or_create_new();
+	}
 
 	frame(0.0);
 
